@@ -1,22 +1,16 @@
 package com.example.podcastapp
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -25,11 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -37,17 +27,18 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
-import com.bumptech.glide.integration.compose.GlideImage
-import com.bumptech.glide.integration.compose.placeholder
 import com.example.podcastapp.audiocontroller.AudioControllerManager
+import com.example.podcastapp.ui.screens.EpisodeScreen
 import com.example.podcastapp.ui.screens.ExploreScreen
 import com.example.podcastapp.ui.screens.HomeScreen
+import com.example.podcastapp.ui.screens.PodcastPlayer
 import com.example.podcastapp.ui.screens.PodcastScreen
 import com.example.podcastapp.ui.screens.SearchScreen
 import com.example.podcastapp.ui.screens.UserScreen
-import com.example.podcastapp.ui.theme.PodcastAppTheme
+import com.example.podcastapp.ui.viewmodel.PodcastEpItem
 
+
+private const val tag = "PodcastAppNavGraph"
 
 sealed class NavigationScreen(val name: String, val icon: ImageVector?) {
     data object Home : NavigationScreen("Home", Icons.Default.Home)
@@ -55,6 +46,7 @@ sealed class NavigationScreen(val name: String, val icon: ImageVector?) {
     data object User : NavigationScreen("User", Icons.AutoMirrored.Filled.List)
     data object Search : NavigationScreen("Search", null)
     data object Podcast : NavigationScreen("Podcast", null)
+    data object Episode : NavigationScreen("Episode", null)
 }
 
 val BottomNavigation = listOf(
@@ -63,14 +55,14 @@ val BottomNavigation = listOf(
     NavigationScreen.User,
 )
 
-
-
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun PodcastNavGraph() {
+fun PodcastNavGraph(audioControllerManager: AudioControllerManager) {
     val navController = rememberNavController()
+
     Scaffold(
         bottomBar = {
-            NavigationBar {
+            NavigationBar{
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentDestination = navBackStackEntry?.destination
                 BottomNavigation.forEach {
@@ -112,14 +104,13 @@ fun PodcastNavGraph() {
                 }
                 composable(NavigationScreen.Explore.name) {
                     ExploreScreen(
-                        navigateToSearch = { navController.navigate(NavigationScreen.Search.name) }
+                        navigateToSearch = { navController.navigate(NavigationScreen.Search.name) },
+                        playMedia = { audioControllerManager.playMedia(it) },
+                        navigateToEpisode = { navController.navigate("${NavigationScreen.Episode.name}/$it") }
                     )
                 }
-                composable(NavigationScreen.Search.name) {
-                    SearchScreen(
-                        navigateBack = { navController.popBackStack() },
-                        navigateToPodcast = {} // TODO:
-                    )
+                composable(NavigationScreen.User.name) {
+                    UserScreen()
                 }
                 composable(
                     route = "${NavigationScreen.Podcast.name}/{podcastId}",
@@ -128,56 +119,50 @@ fun PodcastNavGraph() {
                     })
                 ) {
                     PodcastScreen(
+                        navigateBack = { navController.popBackStack() },
+                        playMedia = { audioControllerManager.playMedia(it) },
+                        navigateToEpisode = { navController.navigate("${NavigationScreen.Episode.name}/$it") }
+                    )
+                }
+                composable(
+                    route = "${NavigationScreen.Episode.name}/{episodeId}",
+                    arguments = listOf(navArgument("episodeId") {
+                        type = NavType.LongType
+                    })
+                ) {
+                    EpisodeScreen(
                         navigateBack = { navController.popBackStack() }
                     )
                 }
-                composable(NavigationScreen.User.name) {
-                    UserScreen()
+                composable(NavigationScreen.Search.name) {
+                    SearchScreen(
+                        navigateBack = { navController.popBackStack() },
+                        navigateToPodcast = {} // TODO:
+                    )
                 }
             }
+//            Button(onClick = { audioControllerManager.playMedia(
+//                PodcastEpItem(
+//                    "https://megaphone.imgix.net/podcasts/6b48647a-f635-11ef-8324-2b180a017350/image/d142ec926f025bd64b32d9a2e96aa81a.jpg?ixlib=rails-4.3.1&max-w=3000&max-h=3000&fit=crop&auto=format,compress",
+//                    "The Joe Rogan Experience",
+//                    "date",
+//                    "#2282 - Bill Murray",
+//                    "description",
+//                    "https://www.learningcontainer.com/wp-content/uploads/2020/02/Kalimba.mp3",
+//                    "1000",
+//                    1,
+//                    1
+//                ),
+//            ) },
+//            ) {
+//                Text("test")
+//            }
             AnimatedVisibility(
-                visible = AudioControllerManager.isPlaying,
+                visible = audioControllerManager.hasPlaylistItems,
                 modifier = Modifier.align(Alignment.BottomCenter)
             ) {
-                PodcastBottomBar()
+                PodcastPlayer(audioControllerManager = audioControllerManager)
             }
         }
-    }
-}
-
-@OptIn(ExperimentalGlideComposeApi::class)
-@Composable
-fun PodcastBottomBar(modifier: Modifier = Modifier) {
-    val mediaInfo = AudioControllerManager.getCurrentMediaInfo()
-    Row(
-        modifier = modifier.fillMaxWidth().background(Color.Black)
-    ) {
-        GlideImage(
-            model = mediaInfo?.imageUri,
-            contentDescription = "episode image",
-            modifier = Modifier
-                .padding(end = 8.dp)
-                .size(50.dp)
-                .clip(RoundedCornerShape(6.dp)),
-            loading = placeholder(R.drawable.ic_launcher_background),
-            failure = placeholder(R.drawable.ic_launcher_foreground)
-        )
-        Column {
-            Text(text = mediaInfo?.episodeName ?: "error")
-            Text(text = mediaInfo?.title ?: "error")
-        }
-        IconButton(onClick = {
-            AudioControllerManager.pauseMedia()
-        }) {
-            Icon(imageVector = Icons.Default.PlayArrow, contentDescription = "play")
-        }
-    }
-}
-
-@Preview
-@Composable
-private fun PodcastBottomBarPreview() {
-    PodcastAppTheme {
-        PodcastBottomBar()
     }
 }

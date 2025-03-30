@@ -2,6 +2,7 @@ package com.example.podcastapp.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -64,6 +65,8 @@ val SIDE_PADDING = 20.dp
 @Composable
 fun ExploreScreen(
     navigateToSearch: () -> Unit,
+    playMedia: (PodcastEpItem) -> Unit,
+    navigateToEpisode: (Long) -> Unit,
     viewModel: ExploreViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -111,7 +114,7 @@ fun ExploreScreen(
                 HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
                 LazyColumn {
                     items(uiState.items) {
-                        PodcastItem(it)
+                        PodcastItem(it, playMedia, navigateToEpisode)
                     }
                 }
             }
@@ -148,9 +151,15 @@ private fun PodcastSearchBar(navigateToSearch: () -> Unit) {
 
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
-fun PodcastItem(pod: PodcastEpItem) {
+fun PodcastItem(
+    pod: PodcastEpItem,
+    playMedia: (PodcastEpItem) -> Unit,
+    navigateToEpisode: (Long) -> Unit
+) {
     Column(
-        modifier = Modifier.padding(start = SIDE_PADDING, top = 8.dp, end = SIDE_PADDING)
+        modifier = Modifier
+            .padding(start = SIDE_PADDING, top = 8.dp, end = SIDE_PADDING)
+            .clickable { navigateToEpisode(pod.episodeId) }
     ) {
         Row(
             modifier = Modifier.padding(vertical = 8.dp),
@@ -194,7 +203,7 @@ fun PodcastItem(pod: PodcastEpItem) {
             horizontalArrangement = Arrangement.spacedBy(18.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Button(onClick = { AudioControllerManager.playMedia(pod) }) {
+            Button(onClick = { playMedia(pod) }) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -288,7 +297,9 @@ private fun PodcastItemPreview() {
         episodeName = "The science of friction -- and its surprising impact on our lives | Jennifer Person",
         description = "Join the Acquired Limited Partner program! http://siteahsiethaisetha (works best on mobile)",
         timeLeft = "1hr 2min",
-        enclosureUrl = ""
+        enclosureUrl = "",
+        podcastId = 1,
+        episodeId = 1
     )
-    PodcastItem(item)
+    PodcastItem(item, {}) {}
 }

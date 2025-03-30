@@ -29,8 +29,10 @@ import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
 import com.example.podcastapp.R
+import com.example.podcastapp.audiocontroller.AudioControllerManager
 import com.example.podcastapp.ui.theme.PodcastAppTheme
 import com.example.podcastapp.ui.viewmodel.AppViewModelProvider
+import com.example.podcastapp.ui.viewmodel.PodcastEpItem
 import com.example.podcastapp.ui.viewmodel.PodcastUiState
 import com.example.podcastapp.ui.viewmodel.PodcastViewModel
 import com.example.podcastapp.ui.viewmodel.SearchViewModel
@@ -38,13 +40,17 @@ import com.example.podcastapp.ui.viewmodel.SearchViewModel
 @Composable
 fun PodcastScreen(
     viewModel: PodcastViewModel = viewModel(factory = AppViewModelProvider.Factory),
-    navigateBack: () -> Unit
+    navigateBack: () -> Unit,
+    playMedia: (PodcastEpItem) -> Unit,
+    navigateToEpisode: (Long) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     PodcastScreenUI(
         uiState = uiState,
-        navigateBack = navigateBack
+        navigateBack = navigateBack,
+        playMedia = playMedia,
+        navigateToEpisode = navigateToEpisode
     )
 }
 
@@ -52,7 +58,9 @@ fun PodcastScreen(
 @Composable
 fun PodcastScreenUI(
     uiState: PodcastUiState,
-    navigateBack: () -> Unit
+    navigateBack: () -> Unit,
+    playMedia: (PodcastEpItem) -> Unit,
+    navigateToEpisode: (Long) -> Unit,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally
@@ -74,7 +82,7 @@ fun PodcastScreenUI(
         )
         LazyColumn {
             items(uiState.episodes) {
-                PodcastItem(it)
+                PodcastItem(it, playMedia, navigateToEpisode)
             }
         }
     }
@@ -100,6 +108,6 @@ private fun PodcastScreenUIPreview() {
         episodes = emptyList()
     )
     PodcastAppTheme {
-        PodcastScreenUI(uiState, navigateBack = {})
+        PodcastScreenUI(uiState, navigateBack = {}, playMedia = {}) {}
     }
 }

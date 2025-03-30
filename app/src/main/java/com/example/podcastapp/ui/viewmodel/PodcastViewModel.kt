@@ -1,5 +1,6 @@
 package com.example.podcastapp.ui.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -11,6 +12,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 
+
+private const val tag = "PodcastViewModel"
 
 data class PodcastUiState(
     val title: String,
@@ -43,7 +46,7 @@ class PodcastViewModel(
                 )
             }
             try {
-                val response = remoteRepository.episodeByFeedID(subscribedPodcast.id)
+                val response = remoteRepository.episodesByFeedID(subscribedPodcast.id)
                 val episodes = response.items.map {
                     PodcastEpItem(
                         image = it.image,
@@ -52,7 +55,9 @@ class PodcastViewModel(
                         episodeName = it.title,
                         description = it.description,
                         enclosureUrl = it.enclosureUrl,
-                        timeLeft = it.duration.toString() // TODO: make pretty
+                        timeLeft = it.duration.toString(),// TODO: make pretty
+                        podcastId = podcastId,
+                        episodeId = it.id
                     )
                 }
                 _uiState.update {

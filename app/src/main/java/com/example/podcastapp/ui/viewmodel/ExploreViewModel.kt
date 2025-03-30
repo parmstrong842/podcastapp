@@ -1,7 +1,6 @@
 package com.example.podcastapp.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
-import com.example.podcastapp.R
 import com.example.podcastapp.data.remote.RemoteRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,7 +24,9 @@ data class PodcastEpItem(
     val episodeName: String,
     val description: String,
     val enclosureUrl: String,
-    val timeLeft: String
+    val timeLeft: String,
+    val podcastId: Int,
+    val episodeId: Long
 )
 
 class ExploreViewModel(

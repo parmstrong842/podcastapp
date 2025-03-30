@@ -1,5 +1,6 @@
 package com.example.podcastapp.data.remote
 
+import com.example.podcastapp.data.remote.models.podcastindex.EpisodeFeedResponse
 import com.example.podcastapp.data.remote.models.podcastindex.EpisodeResponse
 import com.example.podcastapp.data.remote.models.podcastindex.SearchResponse
 import retrofit2.http.GET
@@ -16,9 +17,16 @@ interface PodcastIndexApi {
     ): SearchResponse
 
     @GET("episodes/byfeedid")
-    suspend fun episodeByFeedID(
+    suspend fun episodesByFeedID(
         @Header("X-Auth-Date") authDate: String,
         @Header("Authorization") authorization: String,
         @Query("id") id: Int,
+    ): EpisodeFeedResponse
+
+    @GET("episodes/byid")
+    suspend fun episodeByID(
+        @Header("X-Auth-Date") authDate: String,
+        @Header("Authorization") authorization: String,
+        @Query("id") id: Long,
     ): EpisodeResponse
 }

@@ -1,17 +1,25 @@
 package com.example.podcastapp.data.local
 
-import com.example.podcastapp.data.local.entities.SubscribedPodcast
+import com.example.podcastapp.data.local.entities.PodcastProgressEntity
+import com.example.podcastapp.data.local.entities.SubscribedPodcastEntity
 import kotlinx.coroutines.flow.Flow
 
 interface DatabaseRepository {
 
-    fun getAllSubscriptionsFlow(): Flow<List<SubscribedPodcast>>
+    fun getAllSubscriptionsFlow(): Flow<List<SubscribedPodcastEntity>>
 
-    suspend fun getSubscription(id: Int): SubscribedPodcast
+    suspend fun getSubscription(id: Int): SubscribedPodcastEntity
 
-    suspend fun insertSubscription(item: SubscribedPodcast)
+    suspend fun insertSubscription(item: SubscribedPodcastEntity)
 
-    suspend fun updateSubscription(item: SubscribedPodcast)
+    suspend fun updateSubscription(item: SubscribedPodcastEntity)
 
-    suspend fun deleteSubscription(item: SubscribedPodcast)
+    suspend fun deleteSubscription(item: SubscribedPodcastEntity)
+
+
+    suspend fun saveProgress(progress: PodcastProgressEntity)
+
+    suspend fun getProgress(podcastId: Int, episodeId: Long): PodcastProgressEntity?
+
+    suspend fun getRecentProgress(): List<PodcastProgressEntity>
 }

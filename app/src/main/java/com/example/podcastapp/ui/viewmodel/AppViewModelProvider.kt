@@ -6,19 +6,30 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.podcastapp.PodcastApplication
+import com.example.podcastapp.ui.screens.EpisodeScreen
 
 object AppViewModelProvider {
     val Factory = viewModelFactory {
-        initializer {
-            ExploreViewModel(podcastApplication().container.remoteRepository)
-        }
         initializer {
             HomeViewModel(
                 podcastApplication().container.databaseRepository
             )
         }
         initializer {
+            ExploreViewModel(podcastApplication().container.remoteRepository)
+        }
+        initializer {
+            UserViewModel()
+        }
+        initializer {
             PodcastViewModel(
+                this.createSavedStateHandle(),
+                podcastApplication().container.databaseRepository,
+                podcastApplication().container.remoteRepository
+            )
+        }
+        initializer {
+            EpisodeViewModel(
                 this.createSavedStateHandle(),
                 podcastApplication().container.databaseRepository,
                 podcastApplication().container.remoteRepository
@@ -29,9 +40,6 @@ object AppViewModelProvider {
                 podcastApplication().container.remoteRepository,
                 podcastApplication().container.databaseRepository
             )
-        }
-        initializer {
-            UserViewModel()
         }
     }
 }

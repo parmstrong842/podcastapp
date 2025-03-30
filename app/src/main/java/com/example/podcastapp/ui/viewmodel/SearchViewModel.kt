@@ -3,7 +3,7 @@ package com.example.podcastapp.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.podcastapp.data.local.DatabaseRepository
-import com.example.podcastapp.data.local.entities.SubscribedPodcast
+import com.example.podcastapp.data.local.entities.SubscribedPodcastEntity
 import com.example.podcastapp.data.remote.RemoteRepository
 import com.example.podcastapp.data.remote.models.podcastindex.Podcast
 import kotlinx.coroutines.FlowPreview
@@ -90,7 +90,7 @@ class SearchViewModel(
     fun subscribeToPodcast(podcast: Podcast) {
         viewModelScope.launch {
             databaseRepository.insertSubscription(
-                SubscribedPodcast(
+                SubscribedPodcastEntity(
                     id = podcast.id,
                     title = podcast.title,
                     image = podcast.image
