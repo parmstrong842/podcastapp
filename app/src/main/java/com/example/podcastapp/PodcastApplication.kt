@@ -1,8 +1,6 @@
 package com.example.podcastapp
 
 import android.app.Application
-import android.content.Context
-import com.example.podcastapp.audiocontroller.AudioControllerManager
 import com.example.podcastapp.data.AppDataContainer
 
 // TODO: detect and pause when headphones disconnect

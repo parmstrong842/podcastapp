@@ -6,11 +6,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -19,13 +20,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
 import com.example.podcastapp.R
+import com.example.podcastapp.audiocontroller.IAudioControllerManager
 import com.example.podcastapp.ui.viewmodel.AppViewModelProvider
 import com.example.podcastapp.ui.viewmodel.EpisodeViewModel
 
@@ -33,15 +35,18 @@ import com.example.podcastapp.ui.viewmodel.EpisodeViewModel
 @Composable
 fun EpisodeScreen(
     navigateBack: () -> Unit,
+    audioControllerManager: IAudioControllerManager,
     viewModel: EpisodeViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     val scrollState = rememberScrollState()
-    Column {
+    Column{
         EpisodeTopBar(navigateBack)
         Column(
-            modifier = Modifier.verticalScroll(scrollState),
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .verticalScroll(scrollState),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             GlideImage(
@@ -53,6 +58,34 @@ fun EpisodeScreen(
                 loading = placeholder(R.drawable.ic_launcher_background),
                 failure = placeholder(R.drawable.ic_launcher_foreground)
             )
+            IconButton(
+                onClick = {
+                    if (audioControllerManager.shouldShowPlayButton) {
+                        audioControllerManager.resumePlayback()
+                    } else {
+                        audioControllerManager.pauseMedia()
+                    }
+                },
+            ) {
+                if (audioControllerManager.isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        imageVector = if (audioControllerManager.shouldShowPlayButton) {
+                            Icons.Filled.PlayArrow
+                        } else {
+                            Icons.Filled.Pause
+                        },
+                        contentDescription = if (audioControllerManager.shouldShowPlayButton) "Play" else "Pause",
+                        tint = Color.White
+                    )
+                }
+            }
+            Text(text = "${uiState.datePublishedPretty} - ${uiState.duration}")
             Text(uiState.title)
             Text(text = uiState.description)
         }

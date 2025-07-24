@@ -10,12 +10,17 @@ import android.view.KeyEvent
 import android.view.KeyEvent.KEYCODE_MEDIA_NEXT
 import android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS
 import androidx.annotation.OptIn
+import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS
+import androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS
+import androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_MIN_BUFFER_MS
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.CommandButton
 import androidx.media3.session.MediaSession
@@ -52,6 +57,7 @@ class PodcastAudioService : MediaSessionService() {
     private val coroutineScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var progressUpdateJob: Job? = null
     private var currentMediaItem: MediaItem? = null
+    private var maxBufferMs = 1000 * 60 * 10
 
     private val SPEED_0_5X = "SPEED_0_5X"
     private val SPEED_0_7X = "SPEED_0_7X"
@@ -121,7 +127,26 @@ class PodcastAudioService : MediaSessionService() {
 
         databaseRepository = (application as PodcastApplication).container.databaseRepository
 
-        val player = ExoPlayer.Builder(this).build()
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                DEFAULT_MIN_BUFFER_MS,
+                maxBufferMs,
+                DEFAULT_BUFFER_FOR_PLAYBACK_MS,
+                DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS
+            )
+            .build()
+
+        val player = ExoPlayer.Builder(this).apply {
+            setLoadControl(loadControl)
+            setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(C.USAGE_MEDIA)
+                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                    .build(),
+                true
+            )
+            setHandleAudioBecomingNoisy(true)
+        }.build()
         player.addListener(object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 mediaItem?.let {
@@ -142,6 +167,7 @@ class PodcastAudioService : MediaSessionService() {
                                         saveCurrentProgress(
                                             currentMediaItem = it,
                                             currentPosition = mediaSession?.player?.currentPosition ?: 0,
+                                            totalDuration = mediaSession?.player?.duration ?: 0
                                         )
                                     }
                                 }
@@ -157,6 +183,7 @@ class PodcastAudioService : MediaSessionService() {
                             saveCurrentProgress(
                                 currentMediaItem = it,
                                 currentPosition = mediaSession?.player?.currentPosition ?: 0,
+                                totalDuration = mediaSession?.player?.duration ?: 0
                             )
                         }
                     }
@@ -172,7 +199,11 @@ class PodcastAudioService : MediaSessionService() {
                 if (reason == Player.DISCONTINUITY_REASON_REMOVE) {
                     currentMediaItem?.let {
                         coroutineScope.launch {
-                            saveCurrentProgress(it, oldPosition.positionMs)
+                            saveCurrentProgress(
+                                currentMediaItem = it,
+                                currentPosition = oldPosition.positionMs,
+                                totalDuration = mediaSession?.player?.duration ?: 0 // TODO: might not be correct
+                            )
                         }
                     }
                 }
@@ -185,6 +216,7 @@ class PodcastAudioService : MediaSessionService() {
                             saveCurrentProgress(
                                 currentMediaItem = it,
                                 currentPosition = mediaSession?.player?.currentPosition ?: 0,
+                                totalDuration = mediaSession?.player?.duration ?: 0,
                                 finished = true
                             )
                         }
@@ -201,6 +233,7 @@ class PodcastAudioService : MediaSessionService() {
     private suspend fun saveCurrentProgress(
         currentMediaItem: MediaItem,
         currentPosition: Long,
+        totalDuration: Long,
         finished: Boolean = false
     ) {
         //Log.d(tag, "save")
@@ -216,6 +249,7 @@ class PodcastAudioService : MediaSessionService() {
                         podcastId = podcastId,
                         episodeId = episodeId,
                         position = currentPosition,
+                        duration = totalDuration,
                         finished = finished
                     )
                 )
@@ -387,6 +421,7 @@ class PodcastAudioService : MediaSessionService() {
                 saveCurrentProgress(
                     currentMediaItem = it,
                     currentPosition = mediaSession?.player?.currentPosition ?: 0,
+                    totalDuration = mediaSession?.player?.duration ?: 0
                 )
             }
         }

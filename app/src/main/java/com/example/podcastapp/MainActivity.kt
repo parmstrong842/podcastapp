@@ -1,26 +1,26 @@
 package com.example.podcastapp
 
-import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import com.example.podcastapp.audiocontroller.AudioControllerManager
+import com.example.podcastapp.audiocontroller.AudioControllerManagerImpl
+import com.example.podcastapp.audiocontroller.IAudioControllerManager
 import com.example.podcastapp.ui.theme.PodcastAppTheme
 
 private const val tag = "MyMainActivity"
 
 class MainActivity : ComponentActivity() {
 
-    private lateinit var audioControllerManager: AudioControllerManager
+    private lateinit var audioControllerManager: IAudioControllerManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val sharedPrefs = getSharedPreferences("media_prefs", Context.MODE_PRIVATE)
-        audioControllerManager = AudioControllerManager(this, (application as PodcastApplication).container.databaseRepository, sharedPrefs)
+        val sharedPrefs = getSharedPreferences("media_prefs", MODE_PRIVATE)
+        audioControllerManager = AudioControllerManagerImpl(this, (application as PodcastApplication).container.databaseRepository, sharedPrefs)
 
         setContent {
             PodcastAppTheme {

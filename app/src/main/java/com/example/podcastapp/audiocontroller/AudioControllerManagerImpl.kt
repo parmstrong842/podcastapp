@@ -20,6 +20,7 @@ import androidx.media3.session.SessionToken
 import com.example.podcastapp.data.local.DatabaseRepository
 import com.example.podcastapp.data.local.entities.PodcastProgressEntity
 import com.example.podcastapp.ui.viewmodel.PodcastEpItem
+import com.example.podcastapp.utils.toEpisodeHistoryEntity
 import com.google.common.util.concurrent.MoreExecutors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -30,6 +31,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import androidx.core.net.toUri
 
 private const val tag = "AudioControllerManager"
 
@@ -48,34 +50,34 @@ data class SavedMediaItem(
     val title: String,
 )
 
-class AudioControllerManager(
+class AudioControllerManagerImpl(
     private val context: Context,
     private val databaseRepository: DatabaseRepository,
     private val sharedPrefs: SharedPreferences
-) {
+) : IAudioControllerManager {
     private var mediaController: MediaController? = null
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var playMediaJob: Job? = null
     private var timerJob: Job? = null
 
-    var hasPlaylistItems by mutableStateOf(false)
+    override var hasPlaylistItems by mutableStateOf(false)
         private set
-    var isLoading by mutableStateOf(false)
+    override var isLoading by mutableStateOf(false)
         private set
-    var shouldShowPlayButton by mutableStateOf(true)
+    override var shouldShowPlayButton by mutableStateOf(true)
         private set
-    var sleepTimerActive by mutableStateOf(false)
+    override var sleepTimerActive by mutableStateOf(false)
         private set
-    var currentMediaInfo by mutableStateOf<MediaInfo?>(null)
+    override var currentMediaInfo by mutableStateOf<MediaInfo?>(null)
         private set
-    var mediaIsPlaying by mutableStateOf(false)
+    override var mediaIsPlaying by mutableStateOf(false)
         private set
 
     private val _currentSpeed = MutableStateFlow("1x")
-    val currentSpeed: StateFlow<String> = _currentSpeed.asStateFlow()
+    override val currentSpeed: StateFlow<String> = _currentSpeed.asStateFlow()
 
-    fun initializeMediaController() {
+    override fun initializeMediaController() {
         if (mediaController == null) {
             val sessionToken =
                 SessionToken(context, ComponentName(context, PodcastAudioService::class.java))
@@ -174,7 +176,7 @@ class AudioControllerManager(
                 .setMediaMetadata(
                     MediaMetadata.Builder()
                         .setTitle(episodeName)
-                        .setArtworkUri(Uri.parse(image))
+                        .setArtworkUri(image.toUri())
                         .setArtist(title)
                         .setExtras(extras)
                         .build()
@@ -191,7 +193,7 @@ class AudioControllerManager(
     }
 
 
-    fun sleepTimer(durationMillis: Long) {
+    override fun sleepTimer(durationMillis: Long) {
         cancelSleepTimer()
         timerJob = scope.launch {
             sleepTimerActive = true
@@ -201,23 +203,33 @@ class AudioControllerManager(
         }
     }
 
-    fun cancelSleepTimer() {
+    override fun cancelSleepTimer() {
         sleepTimerActive = false
         timerJob?.cancel()
         timerJob = null
     }
 
-    fun getProgress(): Float {
+    override fun getProgress(): Float {
         mediaController?.let { player ->
             val duration = player.duration
             // Return 0 if the duration is not known or invalid
             if (duration <= 0L) return 0f
-            return player.currentPosition.toFloat() / duration.toFloat()
+            return (player.currentPosition.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
         }
         return 0f
     }
 
-    fun seekToProgress(progress: Float) {
+    override fun getBufferProgress(): Float {
+        mediaController?.let { player ->
+            val duration = player.duration
+            // Return 0 if the duration is not known or invalid
+            if (duration <= 0L) return 0f
+            return (player.bufferedPosition.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
+        }
+        return 0f
+    }
+
+    override fun seekToProgress(progress: Float) {
         mediaController?.let { player ->
             val duration = player.duration
             if (duration > 0) {
@@ -227,7 +239,7 @@ class AudioControllerManager(
         }
     }
 
-    fun playMedia(pod: PodcastEpItem) {
+    override fun playMedia(pod: PodcastEpItem) {
         playMediaJob = scope.launch {
             val extras = Bundle().apply {
                 putInt("PODCAST_ID", pod.podcastId)
@@ -245,21 +257,23 @@ class AudioControllerManager(
             saveCurrentMediaItem(mediaItemToSave)
 
             val savedProgress = databaseRepository.getProgress(pod.podcastId, pod.episodeId)
-
             prepareMediaItem(pod.enclosureUrl, pod.episodeName, pod.image, pod.title, extras, savedProgress)
+
+            databaseRepository.insertEpisodeHistory(pod.toEpisodeHistoryEntity())
+
             mediaController?.play()
         }
     }
 
-    fun pauseMedia() {
+    override fun pauseMedia() {
         mediaController?.pause()
     }
 
-    fun resumePlayback() {
+    override fun resumePlayback() {
         mediaController?.play()
     }
 
-    fun sendCustomCommand(action: String, extras: Bundle) {
+    override fun sendCustomCommand(action: String, extras: Bundle) {
         val controller = mediaController ?: return
         val sessionCommand = SessionCommand(action, extras)
         controller.sendCustomCommand(sessionCommand, extras)
@@ -307,9 +321,13 @@ class AudioControllerManager(
         }
     }
 
-    fun getMediaController(): MediaController? = mediaController
+    override fun getCurrentPodcastId(): Int? {
+        return mediaController?.currentMediaItem?.mediaMetadata?.extras?.getInt("PODCAST_ID")
+    }
 
-    fun release() {
+    override fun getMediaController(): MediaController? = mediaController
+
+    override fun release() {
         Log.d(tag, "release")
         playMediaJob?.cancel()
         playMediaJob = null

@@ -19,6 +19,8 @@ data class EpisodeUiState(
     val title: String,
     val image: String?,
     val description: String,
+    val datePublishedPretty: String,
+    val duration: Int
 )
 
 class EpisodeViewModel(
@@ -32,7 +34,9 @@ class EpisodeViewModel(
     private val _uiState: MutableStateFlow<EpisodeUiState> = MutableStateFlow(EpisodeUiState(
         title = "",
         image = "",
-        description = ""
+        description = "",
+        datePublishedPretty = "",
+        duration = 0
     ))
     val uiState = _uiState.asStateFlow()
 
@@ -45,7 +49,9 @@ class EpisodeViewModel(
                     it.copy(
                         image = response.episode.image,
                         title = response.episode.title,
-                        description = response.episode.description
+                        description = response.episode.description,
+                        datePublishedPretty = response.episode.datePublishedPretty,
+                        duration = response.episode.duration
                     )
                 }
                 // TODO:

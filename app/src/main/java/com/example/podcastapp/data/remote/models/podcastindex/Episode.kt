@@ -5,6 +5,7 @@ data class Episode(
     val title: String,
     val description: String,
     val enclosureUrl: String,
+    val datePublished: Long,
     val datePublishedPretty: String,
     val image: String,
     val duration: Int

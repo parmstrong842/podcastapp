@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
 
 private const val tag = "searchTag"
 
-sealed interface SearchResult {
+sealed interface SearchResult { // TODO: use Resource instead
     data class Success(val podcasts: List<Podcast>) : SearchResult
     data object Error : SearchResult
     data object Loading : SearchResult

@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">PodcastApp</string>
+    <string name="import_subscriptions_from_opml">import subscriptions from OPML</string>
+    <string name="completed">Completed</string>
 </resources>

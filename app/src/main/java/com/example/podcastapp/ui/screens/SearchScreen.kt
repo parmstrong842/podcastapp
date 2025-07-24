@@ -56,7 +56,7 @@ import kotlinx.coroutines.launch
 fun SearchScreen(
     viewModel: SearchViewModel = viewModel(factory = AppViewModelProvider.Factory),
     navigateBack: () -> Unit,
-    navigateToPodcast: () -> Unit
+    navigateToPodcast: (Int) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val focusRequester = remember { FocusRequester() }
@@ -104,7 +104,6 @@ fun SearchScreen(
                 listState = listState,
                 podcasts = state.podcasts,
                 navigateToPodcast = navigateToPodcast,
-                subscribeToPodcast = { viewModel.subscribeToPodcast(it) }
             )
             is SearchResult.Error -> Error()
             is SearchResult.Loading -> Loading(Modifier.align(Alignment.CenterHorizontally))
@@ -117,8 +116,7 @@ fun SearchScreen(
 private fun Success(
     listState: LazyListState,
     podcasts: List<Podcast>,
-    navigateToPodcast: () -> Unit,
-    subscribeToPodcast: (Podcast) -> Unit
+    navigateToPodcast: (Int) -> Unit,
 ) {
 
     LazyColumn(
@@ -130,8 +128,7 @@ private fun Success(
         items(podcasts) { podcast ->
             PodcastItem(
                 podcast = podcast,
-                onClick = navigateToPodcast,
-                subscribeToPodcast = subscribeToPodcast
+                onClick = { navigateToPodcast(podcast.id) },
             )
         }
     }
@@ -143,7 +140,6 @@ private fun PodcastItem(
     modifier: Modifier = Modifier,
     podcast: Podcast,
     onClick: () -> Unit,
-    subscribeToPodcast: (Podcast) -> Unit
 ) {
     Surface(
         modifier = modifier
@@ -180,9 +176,6 @@ private fun PodcastItem(
                     maxLines = 1
                 )
             }
-            IconButton(onClick = { subscribeToPodcast(podcast) }) {
-                Icon(imageVector = Icons.Default.Add, contentDescription = "subscribe")
-            }
         }
     }
 }
@@ -203,20 +196,20 @@ private fun Loading(modifier: Modifier) {
 @Composable
 fun Idle() {}
 
-@Preview(
-    showBackground = true,
-    backgroundColor = 0xFFFFFF,
-    widthDp = 412
-)
-@Composable
-private fun PodcastItemPreview() {
-    val pod = Podcast(
-        id = 75075,
-        title = "Batman University",
-        description = "Batman University is a seasonal podcast about you know who. It began with an analysis of episodes of “Batman: The Animated Series” but has now expanded to cover other series, movies, and media. Your professor is Tony Armstrong.",
-        image = "https://www.theincomparable.com/imgs/logos/logo-batmanuniversity-3x.jpg",
-        url = "https://feeds.theincomparable.com/batmanuniversity",
-        author = "Tony Armstrong"
-    )
-    PodcastItem(podcast = pod, onClick = {}, subscribeToPodcast = {})
-}
+//@Preview(
+//    showBackground = true,
+//    backgroundColor = 0xFFFFFF,
+//    widthDp = 412
+//)
+//@Composable
+//private fun PodcastItemPreview() {
+//    val pod = Podcast(
+//        id = 75075,
+//        title = "Batman University",
+//        description = "Batman University is a seasonal podcast about you know who. It began with an analysis of episodes of “Batman: The Animated Series” but has now expanded to cover other series, movies, and media. Your professor is Tony Armstrong.",
+//        image = "https://www.theincomparable.com/imgs/logos/logo-batmanuniversity-3x.jpg",
+//        url = "https://feeds.theincomparable.com/batmanuniversity",
+//        author = "Tony Armstrong"
+//    )
+//    PodcastItem(podcast = pod, onClick = {}, subscribeToPodcast = {})
+//}

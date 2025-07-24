@@ -1,5 +1,6 @@
 package com.example.podcastapp.data.local
 
+import com.example.podcastapp.data.local.entities.EpisodeHistoryEntity
 import com.example.podcastapp.data.local.entities.PodcastProgressEntity
 import com.example.podcastapp.data.local.entities.SubscribedPodcastEntity
 import kotlinx.coroutines.flow.Flow
@@ -10,7 +11,7 @@ class DatabaseRepositoryImpl(private val dao: DatabaseDao) : DatabaseRepository 
         return dao.getAllSubscriptionsFlow()
     }
 
-    override suspend fun getSubscription(id: Int): SubscribedPodcastEntity {
+    override suspend fun getSubscription(id: Int): SubscribedPodcastEntity? {
         return dao.getSubscription(id)
     }
 
@@ -35,7 +36,20 @@ class DatabaseRepositoryImpl(private val dao: DatabaseDao) : DatabaseRepository 
         return dao.getProgress(podcastId, episodeId)
     }
 
+    override suspend fun getAllProgressForPodcast(podcastId: Int): List<PodcastProgressEntity> {
+        return dao.getAllProgressForPodcast(podcastId)
+    }
+
     override suspend fun getRecentProgress(): List<PodcastProgressEntity> {
         return dao.getRecentProgress()
+    }
+
+
+    override fun getHistoryFlow(): Flow<List<EpisodeHistoryEntity>> {
+        return dao.getHistoryFlow()
+    }
+
+    override suspend fun insertEpisodeHistory(history: EpisodeHistoryEntity) {
+        dao.insertEpisodeHistory(history)
     }
 }

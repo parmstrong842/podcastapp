@@ -20,13 +20,16 @@ data class PodcastSquare(
 data class PodcastEpItem(
     val image: String,
     val title: String,
-    val uploadDate: String,
+    val datePublishedPretty: String,
+    val datePublished: Long,
     val episodeName: String,
     val description: String,
     val enclosureUrl: String,
     val timeLeft: String,
+    val progress: Float,
     val podcastId: Int,
-    val episodeId: Long
+    val episodeId: Long,
+    val played: Boolean
 )
 
 class ExploreViewModel(

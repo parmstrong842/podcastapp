@@ -1,7 +1,6 @@
 package com.example.podcastapp
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -27,7 +26,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.podcastapp.audiocontroller.AudioControllerManager
+import com.example.podcastapp.audiocontroller.IAudioControllerManager
 import com.example.podcastapp.ui.screens.EpisodeScreen
 import com.example.podcastapp.ui.screens.ExploreScreen
 import com.example.podcastapp.ui.screens.HomeScreen
@@ -55,9 +54,8 @@ val BottomNavigation = listOf(
     NavigationScreen.User,
 )
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun PodcastNavGraph(audioControllerManager: AudioControllerManager) {
+fun PodcastNavGraph(audioControllerManager: IAudioControllerManager) {
     val navController = rememberNavController()
 
     Scaffold(
@@ -110,7 +108,11 @@ fun PodcastNavGraph(audioControllerManager: AudioControllerManager) {
                     )
                 }
                 composable(NavigationScreen.User.name) {
-                    UserScreen()
+                    UserScreen(
+                        playMedia = { audioControllerManager.playMedia(it) },
+                        navigateToPodcast = { navController.navigate("${NavigationScreen.Podcast.name}/$it") },
+                        navigateToEpisode = { navController.navigate("${NavigationScreen.Episode.name}/$it") }
+                    )
                 }
                 composable(
                     route = "${NavigationScreen.Podcast.name}/{podcastId}",
@@ -131,37 +133,44 @@ fun PodcastNavGraph(audioControllerManager: AudioControllerManager) {
                     })
                 ) {
                     EpisodeScreen(
-                        navigateBack = { navController.popBackStack() }
+                        navigateBack = { navController.popBackStack() },
+                        audioControllerManager
                     )
                 }
                 composable(NavigationScreen.Search.name) {
                     SearchScreen(
                         navigateBack = { navController.popBackStack() },
-                        navigateToPodcast = {} // TODO:
+                        navigateToPodcast = { navController.navigate("${NavigationScreen.Podcast.name}/$it") }
                     )
                 }
             }
-//            Button(onClick = { audioControllerManager.playMedia(
-//                PodcastEpItem(
-//                    "https://megaphone.imgix.net/podcasts/6b48647a-f635-11ef-8324-2b180a017350/image/d142ec926f025bd64b32d9a2e96aa81a.jpg?ixlib=rails-4.3.1&max-w=3000&max-h=3000&fit=crop&auto=format,compress",
-//                    "The Joe Rogan Experience",
-//                    "date",
-//                    "#2282 - Bill Murray",
-//                    "description",
-//                    "https://www.learningcontainer.com/wp-content/uploads/2020/02/Kalimba.mp3",
-//                    "1000",
-//                    1,
-//                    1
-//                ),
-//            ) },
-//            ) {
-//                Text("test")
-//            }
+            Button(onClick = { audioControllerManager.playMedia(
+                PodcastEpItem(
+                    "https://megaphone.imgix.net/podcasts/6b48647a-f635-11ef-8324-2b180a017350/image/d142ec926f025bd64b32d9a2e96aa81a.jpg?ixlib=rails-4.3.1&max-w=3000&max-h=3000&fit=crop&auto=format,compress",
+                    "The Joe Rogan Experience",
+                    "date",
+                    4564,
+                    "#2282 - Bill Murray",
+                    "description",
+                    "https://www.learningcontainer.com/wp-content/uploads/2020/02/Kalimba.mp3",
+                    "1000",
+                    0f,
+                    1,
+                    1,
+                    false
+                ),
+            ) },
+            ) {
+                Text("test")
+            }
             AnimatedVisibility(
                 visible = audioControllerManager.hasPlaylistItems,
                 modifier = Modifier.align(Alignment.BottomCenter)
             ) {
-                PodcastPlayer(audioControllerManager = audioControllerManager)
+                PodcastPlayer(
+                    audioControllerManager = audioControllerManager,
+                    navigateToPodcast = { navController.navigate("${NavigationScreen.Podcast.name}/$it") }
+                )
             }
         }
     }

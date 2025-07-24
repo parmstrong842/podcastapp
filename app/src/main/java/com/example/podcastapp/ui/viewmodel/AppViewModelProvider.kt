@@ -22,6 +22,20 @@ object AppViewModelProvider {
             UserViewModel()
         }
         initializer {
+            QueueViewModel()
+        }
+        initializer {
+            DownloadsViewModel()
+        }
+        initializer {
+            HistoryViewModel(
+                podcastApplication().container.databaseRepository
+            )
+        }
+        initializer {
+            SubscriptionsViewModel(podcastApplication().container.databaseRepository)
+        }
+        initializer {
             PodcastViewModel(
                 this.createSavedStateHandle(),
                 podcastApplication().container.databaseRepository,

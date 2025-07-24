@@ -1,7 +1,7 @@
 package com.example.podcastapp.ui.screens
 
+import android.content.res.Configuration
 import android.os.Bundle
-import android.util.Log
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.exponentialDecay
@@ -34,10 +34,10 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.SheetState
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -45,13 +45,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
@@ -66,19 +66,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
 import com.example.podcastapp.R
-import com.example.podcastapp.audiocontroller.AudioControllerManager
-import com.example.podcastapp.audiocontroller.MediaInfo
+import com.example.podcastapp.audiocontroller.AudioControllerManagerMock
+import com.example.podcastapp.audiocontroller.IAudioControllerManager
+import com.example.podcastapp.ui.components.MediaSeekSlider
+import com.example.podcastapp.ui.theme.Dimens
 import com.example.podcastapp.ui.theme.PodcastAppTheme
 import com.example.podcastapp.utils.formatTime
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import okhttp3.internal.concurrent.formatDuration
 
 private const val tag = "PodcastPlayer"
 
@@ -91,13 +91,15 @@ enum class PlayerState{
 @Composable
 fun PodcastPlayer(
     modifier: Modifier = Modifier,
-    audioControllerManager: AudioControllerManager
+    audioControllerManager: IAudioControllerManager,
+    initialPlayerState: PlayerState = PlayerState.Collapsed,
+    navigateToPodcast: (Int) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
 
-    val adjustedHeight = with(density) {(configuration.screenHeightDp.dp - 140.dp).toPx()}
+    val adjustedHeight = with(density) {(configuration.screenHeightDp.dp - Dimens.playerCollapsedHeight - Dimens.navigationBarHeight).toPx()}
 
     val anchors = DraggableAnchors {
         PlayerState.Expanded at 0f
@@ -106,7 +108,7 @@ fun PodcastPlayer(
 
     val state = remember {
         AnchoredDraggableState(
-            initialValue = PlayerState.Collapsed,
+            initialValue = initialPlayerState,
             anchors = anchors,
             positionalThreshold = { totalDistance: Float ->  totalDistance * 0.5f},
             velocityThreshold = { with(density) { 80.dp.toPx() } },
@@ -171,39 +173,41 @@ fun PodcastPlayer(
                 state = state,
                 orientation = Orientation.Vertical,
             ),
-        color = Color.Black
     ){
-        val mediaInfo = audioControllerManager.currentMediaInfo
-        val isLoading = audioControllerManager.isLoading
-        val shouldShowPlayButton = audioControllerManager.shouldShowPlayButton
-
         var progress by remember { mutableFloatStateOf(0f) }
+        var bufferProgress by remember { mutableFloatStateOf(0f) }
         LaunchedEffect(Unit) {
             while (true) {
                 progress = audioControllerManager.getProgress()
-                delay(100)
+                bufferProgress = audioControllerManager.getBufferProgress()
+                delay(2000)
             }
         }
 
         Box {
-            BottomRow(
-                state,
-                scope,
-                collapsedAlpha,
-                mediaInfo,
-                shouldShowPlayButton,
-                isLoading,
-                progress,
-                audioControllerManager
+            CollapsedPlayer(
+                isCollapsed = state.currentValue == PlayerState.Collapsed,
+                rowAlpha = collapsedAlpha,
+                currentProgress = progress,
+                audioControllerManager = audioControllerManager,
+                expandPlayer = {
+                    scope.launch {
+                        state.animateTo(PlayerState.Expanded)
+                    }
+                }
             )
-            InfoAndControls(
-                mediaInfo,
-                imageSizeMax + imageYExpanded + 20.dp,
-                shouldShowPlayButton,
-                isLoading,
-                expandedAlpha,
-                progress,
-                audioControllerManager
+            ExpandedPlayer(
+                topPadding = imageSizeMax + imageYExpanded + 20.dp,
+                expandedAlpha = expandedAlpha,
+                currentProgress = progress,
+                currentBufferProgress = bufferProgress,
+                audioControllerManager = audioControllerManager,
+                navigateToPodcast = {
+                    scope.launch {
+                        state.animateTo(PlayerState.Collapsed)
+                    }
+                    navigateToPodcast(it)
+                }
             )
             IconButton(
                 onClick = {
@@ -211,12 +215,13 @@ fun PodcastPlayer(
                         state.animateTo(PlayerState.Collapsed)
                     }
                 },
+                enabled = state.currentValue == PlayerState.Expanded,
                 modifier = Modifier.alpha(expandedAlpha)
             ) {
                 Icon(imageVector = Icons.Default.KeyboardArrowDown, contentDescription = "collapse player")
             }
             GlideImage(
-                model = mediaInfo?.imageUri,
+                model = audioControllerManager.currentMediaInfo?.imageUri,
                 contentDescription = "episode image",
                 modifier = Modifier
                     .padding(start = imageStartPadding, top = 4.dp)
@@ -237,18 +242,79 @@ fun PodcastPlayer(
 }
 
 @Composable
-private fun InfoAndControls(
-    mediaInfo: MediaInfo?,
+private fun ExpandedPlayer(
     topPadding: Dp,
-    shouldShowPlayButton: Boolean,
-    isLoading: Boolean,
     expandedAlpha: Float,
     currentProgress: Float,
-    audioControllerManager: AudioControllerManager
+    currentBufferProgress: Float,
+    audioControllerManager: IAudioControllerManager,
+    navigateToPodcast: (Int) -> Unit,
 ) {
-    val currentSpeed by audioControllerManager.currentSpeed.collectAsState()
     var showBottomSheet by remember { mutableStateOf(false) }
+    val mediaInfo = audioControllerManager.currentMediaInfo
 
+    val sidePadding = 30.dp
+    Column(
+        modifier = Modifier
+            .alpha(expandedAlpha)
+            .padding(start = sidePadding, top = topPadding, end = sidePadding),
+        verticalArrangement = Arrangement.spacedBy(20.dp)
+    ) {
+        Column {
+            Text(
+                text = mediaInfo?.episodeName ?: "error",
+                modifier = Modifier.basicMarquee(),
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                style = MaterialTheme.typography.headlineSmall
+            )
+            Text(
+                text = mediaInfo?.title ?: "error",
+                modifier = Modifier
+                    .alpha(0.75f)
+                    .clickable {
+                        audioControllerManager.getCurrentPodcastId()?.let {
+                            navigateToPodcast(it)
+                        }
+                    },
+                maxLines = 1,
+                style = MaterialTheme.typography.titleMedium
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ){
+            Button(onClick = { /*TODO*/ }) {
+                Text(text = "Save")
+            }
+            Button(onClick = { /*TODO*/ }) {
+                Text(text = "Download")
+            }
+        }
+        PlaybackProgress(currentProgress, currentBufferProgress, audioControllerManager)
+        PlaybackControlButtonRow(
+            audioControllerManager = audioControllerManager,
+            onClickSleepTimer = { showBottomSheet = true }
+        )
+        SleepTimerBottomSheet(
+            showBottomSheet,
+            hideBottomSheet = {
+                showBottomSheet = false
+            },
+            audioControllerManager
+        )
+    }
+}
+
+@Composable
+private fun PlaybackControlButtonRow(
+    modifier: Modifier = Modifier,
+    audioControllerManager: IAudioControllerManager,
+    onClickSleepTimer: () -> Unit
+) {
+    val shouldShowPlayButton = audioControllerManager.shouldShowPlayButton
+    val currentSpeed by audioControllerManager.currentSpeed.collectAsState()
     val getSpeedIcon = {
         when (currentSpeed) {
             "0.5x" -> R.drawable.speed_0_5x_24
@@ -275,97 +341,67 @@ private fun InfoAndControls(
         }
     }
 
-    val sidePadding = 30.dp
-    Column(
-        modifier = Modifier
-            .alpha(expandedAlpha)
-            .padding(start = sidePadding, top = topPadding, end = sidePadding),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Column {
-            Text(
-                text = mediaInfo?.episodeName ?: "error",
-                modifier = Modifier.basicMarquee(),
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1
-            )
-            Text(
-                text = mediaInfo?.title ?: "error",
-                modifier = Modifier.alpha(0.75f),
-                maxLines = 1
-            )
+        val playIconSize = 52.dp
+        val seekIconSize = 32.dp
+        IconButton(onClick = { handleSpeedChange() }) {
+            Icon(painterResource(getSpeedIcon()), contentDescription = "change playback speed")
         }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ){
-            Button(onClick = { /*TODO*/ }) {
-                Text(text = "Save")
-            }
-            Button(onClick = { /*TODO*/ }) {
-                Text(text = "Download")
-            }
-        }
-        PlaybackProgress(currentProgress, audioControllerManager)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
+        IconButton(
+            onClick = { audioControllerManager.sendCustomCommand("SEEK_BACK", Bundle()) },
         ) {
-            IconButton(onClick = { handleSpeedChange() }) {
-                Icon(painterResource(getSpeedIcon()), contentDescription = "change playback speed")
-            }
-            IconButton(onClick = {
-                audioControllerManager.sendCustomCommand("SEEK_BACK", Bundle())
-            }) {
-                Icon(painterResource(id = R.drawable.baseline_replay_10_24), contentDescription = "back 10")
-            }
-            IconButton(
-                onClick = {
-                    if (shouldShowPlayButton) {
-                        audioControllerManager.resumePlayback()
-                    } else {
-                        audioControllerManager.pauseMedia()
-                    }
-                },
-            ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
+            Icon(
+                painterResource(id = R.drawable.baseline_replay_10_24),
+                contentDescription = "back 10",
+                modifier = Modifier.size(seekIconSize)
+            )
+        }
+        IconButton(
+            onClick = {
+                if (shouldShowPlayButton) {
+                    audioControllerManager.resumePlayback()
                 } else {
-                    Icon(
-                        imageVector = if (shouldShowPlayButton) {
-                            Icons.Filled.PlayArrow
-                        } else {
-                            Icons.Filled.Pause
-                        },
-                        contentDescription = if (shouldShowPlayButton) "Play" else "Pause",
-                        tint = Color.White
-                    )
+                    audioControllerManager.pauseMedia()
                 }
-            }
-            IconButton(onClick = {
-                audioControllerManager.sendCustomCommand("SEEK_FORWARD", Bundle())
-            }) {
-                Icon(painterResource(id = R.drawable.baseline_forward_30_24), contentDescription = "forward 30")
-            }
-            IconButton(onClick = { showBottomSheet = true }) {
+            },
+            modifier = Modifier.size(playIconSize)
+        ) {
+            if (audioControllerManager.isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.fillMaxSize(),
+                    strokeWidth = 2.dp
+                )
+            } else {
                 Icon(
-                    painterResource(
-                        id = if (audioControllerManager.sleepTimerActive) R.drawable.bedtime_filled_24dp else R.drawable.bedtime_24dp
-                    ),
-                    contentDescription = "sleep timer"
+                    imageVector = if (shouldShowPlayButton) {
+                        Icons.Filled.PlayArrow
+                    } else {
+                        Icons.Filled.Pause
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                    contentDescription = if (shouldShowPlayButton) "Play" else "Pause",
                 )
             }
-            SleepTimerBottomSheet(
-                showBottomSheet,
-                hideBottomSheet = {
-                    showBottomSheet = false
-                },
-                audioControllerManager
+        }
+        IconButton(
+            onClick = { audioControllerManager.sendCustomCommand("SEEK_FORWARD", Bundle()) },
+        ) {
+            Icon(
+                painterResource(id = R.drawable.baseline_forward_30_24),
+                contentDescription = "forward 30",
+                modifier = Modifier.size(seekIconSize)
+            )
+        }
+        IconButton(onClick = onClickSleepTimer) {
+            Icon(
+                painterResource(
+                    id = if (audioControllerManager.sleepTimerActive) R.drawable.bedtime_filled_24dp else R.drawable.bedtime_24dp
+                ),
+                contentDescription = "sleep timer"
             )
         }
     }
@@ -376,7 +412,7 @@ private fun InfoAndControls(
 private fun SleepTimerBottomSheet(
     showBottomSheet: Boolean,
     hideBottomSheet: () -> Unit,
-    audioControllerManager: AudioControllerManager
+    audioControllerManager: IAudioControllerManager
 ) {
     val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
@@ -460,7 +496,7 @@ private fun SleepTimerOption(
     sheetState: SheetState,
     scope: CoroutineScope,
     hideBottomSheet: () -> Unit,
-    audioControllerManager: AudioControllerManager
+    audioControllerManager: IAudioControllerManager
 ) {
     Row(
         modifier = Modifier
@@ -477,16 +513,21 @@ private fun SleepTimerOption(
                             hideBottomSheet()
                         }
                     }
-            }
+            },
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = label)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleMedium
+        )
     }
 }
 
 @Composable
 private fun PlaybackProgress(
     currentProgress: Float,
-    audioControllerManager: AudioControllerManager
+    currentBufferProgress: Float,
+    audioControllerManager: IAudioControllerManager
 ) {
     var currentTime by remember { mutableLongStateOf(0L) }
     var totalDuration by remember { mutableLongStateOf(0L) }
@@ -500,62 +541,36 @@ private fun PlaybackProgress(
     }
 
     Column {
-        ProgressSlider(currentProgress, audioControllerManager)
+        MediaSeekSlider(currentProgress, currentBufferProgress) {
+            audioControllerManager.seekToProgress(it)
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
                 text = formatTime(currentTime),
-                fontSize = 12.sp
+                style = MaterialTheme.typography.labelLarge
             )
             Text(
                 text = formatTime(totalDuration),
-                fontSize = 12.sp
+                style = MaterialTheme.typography.labelLarge
             )
         }
     }
 }
 
 @Composable
-private fun ProgressSlider(
-    currentProgress: Float,
-    audioControllerManager: AudioControllerManager
-) {
-    var sliderPosition by remember { mutableFloatStateOf(currentProgress) }
-    var isUserSeeking by remember { mutableStateOf(false) }
-
-    LaunchedEffect(currentProgress) {
-        if (!isUserSeeking) {
-            sliderPosition = currentProgress
-        }
-    }
-
-    Slider(
-        value = sliderPosition,
-        onValueChange = {
-            sliderPosition = it
-            isUserSeeking = true
-        },
-        onValueChangeFinished = {
-            audioControllerManager.seekToProgress(sliderPosition)
-            isUserSeeking = false
-        }
-    )
-}
-
-@Composable
-@OptIn(ExperimentalFoundationApi::class)
-private fun BottomRow(
-    state: AnchoredDraggableState<PlayerState>,
-    scope: CoroutineScope,
+private fun CollapsedPlayer(
+    isCollapsed: Boolean,
     rowAlpha: Float,
-    mediaInfo: MediaInfo?,
-    shouldShowPlayButton: Boolean,
-    isLoading: Boolean,
     currentProgress: Float,
-    audioControllerManager: AudioControllerManager
+    audioControllerManager: IAudioControllerManager,
+    expandPlayer: () -> Unit,
 ) {
+    val mediaInfo = audioControllerManager.currentMediaInfo
+    val shouldShowPlayButton = audioControllerManager.shouldShowPlayButton
+
     Column(
         modifier = Modifier.alpha(rowAlpha)
     ) {
@@ -564,11 +579,9 @@ private fun BottomRow(
                 .height(58.dp)
                 .padding(start = 8.dp, end = 8.dp)
                 .clickable(
-                    enabled = state.currentValue == PlayerState.Collapsed
+                    enabled = isCollapsed
                 ) {
-                    scope.launch {
-                        state.animateTo(PlayerState.Expanded)
-                    }
+                    expandPlayer()
                 }
         ) {
             Column(
@@ -579,12 +592,14 @@ private fun BottomRow(
                 Text(
                     text = mediaInfo?.episodeName ?: "error",
                     modifier = Modifier.basicMarquee(),
-                    maxLines = 1
+                    maxLines = 1,
+                    style = MaterialTheme.typography.titleMedium
                 )
                 Text(
                     text = mediaInfo?.title ?: "error",
-                    modifier = Modifier.alpha(0.75f),
-                    maxLines = 1
+                    modifier = Modifier.alpha(0.65f),
+                    maxLines = 1,
+                    style = MaterialTheme.typography.titleMedium
                 )
             }
             IconButton(
@@ -595,12 +610,11 @@ private fun BottomRow(
                         audioControllerManager.pauseMedia()
                     }
                 },
-                enabled = state.currentValue == PlayerState.Collapsed
+                enabled = isCollapsed
             ) {
-                if (isLoading) {
+                if (audioControllerManager.isLoading) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
-                        color = Color.White,
                         strokeWidth = 2.dp
                     )
                 } else {
@@ -611,7 +625,6 @@ private fun BottomRow(
                             Icons.Filled.Pause
                         },
                         contentDescription = if (shouldShowPlayButton) "Play" else "Pause",
-                        tint = Color.White
                     )
                 }
             }
@@ -647,6 +660,7 @@ private fun DrawScope.drawLinearIndicator(
     strokeWidth: Float,
     startFraction: Float,
     endFraction: Float,
+    thumbWidth: Dp = 0.dp
 ) {
     val width = size.width
     val height = size.height
@@ -658,46 +672,78 @@ private fun DrawScope.drawLinearIndicator(
 
     drawLine(
         color,
-        Offset(barStart, yOffset),
-        Offset(barEnd, yOffset),
+        Offset(barStart + thumbWidth.toPx(), yOffset),
+        Offset(barEnd - thumbWidth.toPx(), yOffset),
         strokeWidth
     )
 }
 
-//@Preview(
-//    showBackground = true
-//)
-//@Composable
-//private fun InfoAndControlsPreview() {
-//
-//    PodcastAppTheme {
-//        val mediaInfo = MediaInfo("2 Bears, 1 Cave with Tom Segura and Bert", "Chrissy Crypto Explains Bitcoin w/ Chris Distefano", null)
-//        InfoAndControls(
-//            mediaInfo = mediaInfo,
-//            topPadding = 0.dp,
-//            shouldShowPlayButton = true,
-//            isLoading = true,
-//            expandedAlpha = 1f,
-//            0f,
-//            audioControllerManager
-//        )
-//    }
-//}
-//
-//@Preview
-//@Composable
-//private fun PodcastPlayerPreview() {
-//    PodcastAppTheme {
-//        //PodcastPlayer()
-//    }
-//}
-//
-//@Preview(showBackground = true)
-//@Composable
-//private fun SleepTimerBottomSheetPreview() {
-//    PodcastAppTheme {
-//        SleepTimerBottomSheet(showBottomSheet = true) {
-//
-//        }
-//    }
-//}
+@Preview
+@Preview(uiMode = Configuration.UI_MODE_NIGHT_YES or Configuration.UI_MODE_TYPE_NORMAL)
+@Composable
+private fun PodcastPlayer_Collapsed_Preview() {
+    PodcastAppTheme() {
+        PodcastPlayer(audioControllerManager = AudioControllerManagerMock()) { }
+    }
+}
+
+@Preview(uiMode = Configuration.UI_MODE_NIGHT_YES or Configuration.UI_MODE_TYPE_NORMAL)
+@Preview
+@Composable
+private fun PodcastPlayer_Expanded_Preview() {
+    PodcastAppTheme {
+        PodcastPlayer(Modifier, AudioControllerManagerMock(), PlayerState.Expanded) { }
+    }
+}
+
+@Preview
+@Composable
+private fun PlaybackControlButtonRow_Paused_Preview() {
+    PlaybackControlButtonRow(
+        audioControllerManager = AudioControllerManagerMock(),
+        onClickSleepTimer = {}
+    )
+}
+
+@Preview
+@Composable
+private fun PlaybackControlButtonRow_Playing_Preview() {
+    PlaybackControlButtonRow(
+        audioControllerManager = AudioControllerManagerMock(shouldShowPlayButton = false),
+        onClickSleepTimer = {}
+    )
+}
+
+@Preview
+@Composable
+private fun PlaybackControlButtonRow_Loading_Preview() {
+    PlaybackControlButtonRow(
+        audioControllerManager = AudioControllerManagerMock(isLoading = true),
+        onClickSleepTimer = {}
+    )
+}
+
+@Preview
+@Composable
+private fun PlaybackControlButtonRow_SleepTimerActive_Preview() {
+    PlaybackControlButtonRow(
+        audioControllerManager = AudioControllerManagerMock(sleepTimerActive = true),
+        onClickSleepTimer = {}
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Preview(showBackground = true)
+@Composable
+private fun SleepTimerOption_Preview() {
+    val sheetState = rememberModalBottomSheetState()
+    val scope = rememberCoroutineScope()
+    SleepTimerOption(
+        label = "5 minutes",
+        durationMillis = 5 * 60 * 1000L,
+        sheetState = sheetState,
+        scope = scope,
+        hideBottomSheet = {},
+        AudioControllerManagerMock()
+    )
+}
