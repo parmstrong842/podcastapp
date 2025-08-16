@@ -2,7 +2,7 @@ package com.example.podcastapp.audiocontroller
 
 import android.os.Bundle
 import androidx.media3.session.MediaController
-import com.example.podcastapp.ui.viewmodel.PodcastEpItem
+import com.example.podcastapp.ui.components.PodcastEpItem
 import kotlinx.coroutines.flow.StateFlow
 
 interface IAudioControllerManager {
@@ -24,7 +24,7 @@ interface IAudioControllerManager {
     fun pauseMedia()
     fun resumePlayback()
     fun sendCustomCommand(action: String, extras: Bundle)
-    fun getCurrentPodcastId(): Int?
+    fun getCurrentPodcastFeedUrl(): String?
     fun getMediaController(): MediaController?
     fun release()
 }

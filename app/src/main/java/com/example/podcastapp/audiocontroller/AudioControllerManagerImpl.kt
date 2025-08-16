@@ -19,7 +19,7 @@ import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionToken
 import com.example.podcastapp.data.local.DatabaseRepository
 import com.example.podcastapp.data.local.entities.PodcastProgressEntity
-import com.example.podcastapp.ui.viewmodel.PodcastEpItem
+import com.example.podcastapp.ui.components.PodcastEpItem
 import com.example.podcastapp.utils.toEpisodeHistoryEntity
 import com.google.common.util.concurrent.MoreExecutors
 import kotlinx.coroutines.CoroutineScope
@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import androidx.core.net.toUri
+import androidx.core.content.edit
 
 private const val tag = "AudioControllerManager"
 
@@ -42,8 +43,8 @@ data class MediaInfo(
 )
 
 data class SavedMediaItem(
-    val podcastId: Int,
-    val episodeId: Long,
+    val feedUrl: String,
+    val guid: Long,
     val enclosureUri: String,
     val episodeName: String,
     val image: String,
@@ -55,11 +56,6 @@ class AudioControllerManagerImpl(
     private val databaseRepository: DatabaseRepository,
     private val sharedPrefs: SharedPreferences
 ) : IAudioControllerManager {
-    private var mediaController: MediaController? = null
-
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
-    private var playMediaJob: Job? = null
-    private var timerJob: Job? = null
 
     override var hasPlaylistItems by mutableStateOf(false)
         private set
@@ -73,6 +69,12 @@ class AudioControllerManagerImpl(
         private set
     override var mediaIsPlaying by mutableStateOf(false)
         private set
+
+    private var mediaController: MediaController? = null
+
+    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private var playMediaJob: Job? = null
+    private var timerJob: Job? = null
 
     private val _currentSpeed = MutableStateFlow("1x")
     override val currentSpeed: StateFlow<String> = _currentSpeed.asStateFlow()
@@ -192,7 +194,6 @@ class AudioControllerManagerImpl(
         }
     }
 
-
     override fun sleepTimer(durationMillis: Long) {
         cancelSleepTimer()
         timerJob = scope.launch {
@@ -242,22 +243,22 @@ class AudioControllerManagerImpl(
     override fun playMedia(pod: PodcastEpItem) {
         playMediaJob = scope.launch {
             val extras = Bundle().apply {
-                putInt("PODCAST_ID", pod.podcastId)
-                putLong("EPISODE_ID", pod.episodeId)
+                putString("FEED_URL", pod.feedUrl)
+                putLong("GUID", pod.guid)
             }
 
             val mediaItemToSave = SavedMediaItem(
-                podcastId = pod.podcastId,
-                episodeId = pod.episodeId,
+                feedUrl = pod.feedUrl,
+                guid = pod.guid,
                 enclosureUri = pod.enclosureUrl,
                 episodeName = pod.episodeName,
                 image = pod.image,
-                title = pod.title,
+                title = pod.podcastTitle,
             )
             saveCurrentMediaItem(mediaItemToSave)
 
-            val savedProgress = databaseRepository.getProgress(pod.podcastId, pod.episodeId)
-            prepareMediaItem(pod.enclosureUrl, pod.episodeName, pod.image, pod.title, extras, savedProgress)
+            val savedProgress = databaseRepository.getProgress(pod.feedUrl, pod.guid)
+            prepareMediaItem(pod.enclosureUrl, pod.episodeName, pod.image, pod.podcastTitle, extras, savedProgress)
 
             databaseRepository.insertEpisodeHistory(pod.toEpisodeHistoryEntity())
 
@@ -286,43 +287,42 @@ class AudioControllerManagerImpl(
     }
 
     private fun saveCurrentMediaItem(pod: SavedMediaItem) {
-        with(sharedPrefs.edit()) {
-            this?.putInt("current_media_item_podcast_id", pod.podcastId)
-            this?.putLong("current_media_item_episode_id", pod.episodeId)
-            this?.putString("current_media_item_enclosure", pod.enclosureUri)
-            this?.putString("current_media_item_episode_name", pod.episodeName)
-            this?.putString("current_media_item_image", pod.image)
-            this?.putString("current_media_item_title", pod.title)
-            this?.apply()
+        sharedPrefs.edit {
+            putString("current_media_item_feed_url", pod.feedUrl)
+            putLong("current_media_item_guid", pod.guid)
+            putString("current_media_item_enclosure", pod.enclosureUri)
+            putString("current_media_item_episode_name", pod.episodeName)
+            putString("current_media_item_image", pod.image)
+            putString("current_media_item_title", pod.title)
         }
     }
 
     private fun fetchCurrentMediaItem(sharedPrefs: SharedPreferences) {
         scope.launch {
-            if (!sharedPrefs.contains("current_media_item_episode_id")) {
+            if (!sharedPrefs.contains("current_media_item_guid")) {
                 return@launch
             }
 
-            val podcastId = sharedPrefs.getInt("current_media_item_podcast_id", -1)
-            val episodeId = sharedPrefs.getLong("current_media_item_episode_id", -1L)
+            val feedUrl = sharedPrefs.getString("current_media_item_feed_url", "") ?: ""
+            val guid = sharedPrefs.getLong("current_media_item_guid", -1L)
             val enclosure = sharedPrefs.getString("current_media_item_enclosure", "") ?: ""
             val episodeName = sharedPrefs.getString("current_media_item_episode_name", "") ?: ""
             val image = sharedPrefs.getString("current_media_item_image", "") ?: ""
             val title = sharedPrefs.getString("current_media_item_title", "") ?: ""
 
             val extras = Bundle().apply {
-                putInt("PODCAST_ID", podcastId)
-                putLong("EPISODE_ID", episodeId)
+                putString("FEED_URL", feedUrl)
+                putLong("GUID", guid)
             }
 
-            val savedProgress = databaseRepository.getProgress(podcastId, episodeId)
+            val savedProgress = databaseRepository.getProgress(feedUrl, guid)
 
             prepareMediaItem(enclosure, episodeName, image, title, extras, savedProgress)
         }
     }
 
-    override fun getCurrentPodcastId(): Int? {
-        return mediaController?.currentMediaItem?.mediaMetadata?.extras?.getInt("PODCAST_ID")
+    override fun getCurrentPodcastFeedUrl(): String? {
+        return mediaController?.currentMediaItem?.mediaMetadata?.extras?.getString("FEED_URL")
     }
 
     override fun getMediaController(): MediaController? = mediaController

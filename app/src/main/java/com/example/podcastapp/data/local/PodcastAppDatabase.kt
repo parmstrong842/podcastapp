@@ -6,9 +6,10 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.example.podcastapp.data.local.entities.EpisodeHistoryEntity
 import com.example.podcastapp.data.local.entities.PodcastProgressEntity
+import com.example.podcastapp.data.local.entities.QueueEntity
 import com.example.podcastapp.data.local.entities.SubscribedPodcastEntity
 
-@Database(entities = [SubscribedPodcastEntity::class, PodcastProgressEntity::class, EpisodeHistoryEntity::class], version = 10, exportSchema = false)
+@Database(entities = [SubscribedPodcastEntity::class, PodcastProgressEntity::class, EpisodeHistoryEntity::class, QueueEntity::class], version = 13, exportSchema = false)
 abstract class PodcastAppDatabase : RoomDatabase() {
 
     abstract fun databaseDao(): DatabaseDao

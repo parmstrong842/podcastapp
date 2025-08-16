@@ -23,6 +23,7 @@ data class EpisodeUiState(
     val duration: Int
 )
 
+// TODO: update to use rss feeds
 class EpisodeViewModel(
     savedStateHandle: SavedStateHandle,
     private val databaseRepository: DatabaseRepository,

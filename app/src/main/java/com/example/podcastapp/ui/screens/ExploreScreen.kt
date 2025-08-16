@@ -45,13 +45,13 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.podcastapp.ui.viewmodel.AppViewModelProvider
 import com.example.podcastapp.R
-import com.example.podcastapp.ui.components.PodcastEpisodeItem
+import com.example.podcastapp.ui.components.PodcastEpisodeCard
+import com.example.podcastapp.ui.theme.Dimens.SIDE_PADDING
 import com.example.podcastapp.ui.viewmodel.ExploreViewModel
-import com.example.podcastapp.ui.viewmodel.PodcastEpItem
+import com.example.podcastapp.ui.components.PodcastEpItem
 import com.example.podcastapp.ui.viewmodel.PodcastSquare
 import kotlinx.coroutines.launch
 
-val SIDE_PADDING = 20.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -106,7 +106,7 @@ fun ExploreScreen(
                 HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
                 LazyColumn {
                     items(uiState.items) {
-                        PodcastEpisodeItem(it, playMedia, navigateToEpisode)
+                        //PodcastEpisodeCard(it, playMedia, navigateToEpisode)
                     }
                 }
             }
@@ -215,17 +215,17 @@ private fun PodcastSquarePreview() {
 private fun PodcastItemPreview() {
     val item = PodcastEpItem(
         image = "",
-        title = "TED Talks Daily",
-        datePublishedPretty = "Yesterday",
-        datePublished = 1231231321,
+        podcastTitle = "TED Talks Daily",
+        pubDate = "Yesterday",
         episodeName = "The science of friction -- and its surprising impact on our lives | Jennifer Person",
         description = "Join the Acquired Limited Partner program! http://siteahsiethaisetha (works best on mobile)",
         timeLeft = "1hr 2min",
         enclosureUrl = "",
-        podcastId = 1,
-        episodeId = 1,
+        feedUrl = "feedUrl",
+        guid = 1,
         played = false,
-        progress = 0f
+        progress = 0f,
+        enqueued = false
     )
-    PodcastEpisodeItem(item, {}) {}
+    PodcastEpisodeCard(item, {}, {}) {}
 }

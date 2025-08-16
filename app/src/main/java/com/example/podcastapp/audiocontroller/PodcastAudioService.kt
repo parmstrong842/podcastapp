@@ -158,12 +158,16 @@ class PodcastAudioService : MediaSessionService() {
             }
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
+                Log.d(tag, "onIsPlayingChanged: $isPlaying")
                 if (isPlaying) {
+                    // backup in case other methods fail to save progress
                     if (progressUpdateJob == null || progressUpdateJob?.isCancelled == true) {
                         progressUpdateJob = coroutineScope.launch {
                             while (isActive) {
+                                delay(60000)
                                 currentMediaItem?.let {
                                     coroutineScope.launch {
+                                        Log.d(tag, "1")
                                         saveCurrentProgress(
                                             currentMediaItem = it,
                                             currentPosition = mediaSession?.player?.currentPosition ?: 0,
@@ -171,7 +175,6 @@ class PodcastAudioService : MediaSessionService() {
                                         )
                                     }
                                 }
-                                delay(60000)
                             }
                         }
                     }
@@ -180,6 +183,7 @@ class PodcastAudioService : MediaSessionService() {
                     progressUpdateJob = null
                     currentMediaItem?.let {
                         coroutineScope.launch {
+                            Log.d(tag, "2")
                             saveCurrentProgress(
                                 currentMediaItem = it,
                                 currentPosition = mediaSession?.player?.currentPosition ?: 0,
@@ -195,10 +199,11 @@ class PodcastAudioService : MediaSessionService() {
                 newPosition: Player.PositionInfo,
                 reason: Int
             ) {
-                Log.d(tag, reason.toString())
-                if (reason == Player.DISCONTINUITY_REASON_REMOVE) {
+                //Log.d(tag, reason.toString())
+                if (reason == Player.DISCONTINUITY_REASON_REMOVE || reason == Player.DISCONTINUITY_REASON_SEEK) {
                     currentMediaItem?.let {
                         coroutineScope.launch {
+                            Log.d(tag, "3")
                             saveCurrentProgress(
                                 currentMediaItem = it,
                                 currentPosition = oldPosition.positionMs,
@@ -213,9 +218,11 @@ class PodcastAudioService : MediaSessionService() {
                 if (playbackState == Player.STATE_ENDED) {
                     currentMediaItem?.let {
                         coroutineScope.launch {
+                            Log.d(tag, "currentPosition: ${mediaSession?.player?.currentPosition}, duration: ${mediaSession?.player?.duration}")
+                            Log.d(tag, "4")
                             saveCurrentProgress(
                                 currentMediaItem = it,
-                                currentPosition = mediaSession?.player?.currentPosition ?: 0,
+                                currentPosition = mediaSession?.player?.currentPosition ?: 0, // TODO:
                                 totalDuration = mediaSession?.player?.duration ?: 0,
                                 finished = true
                             )
@@ -236,18 +243,19 @@ class PodcastAudioService : MediaSessionService() {
         totalDuration: Long,
         finished: Boolean = false
     ) {
-        //Log.d(tag, "save")
+        Log.d(tag, "save")
         val extras = currentMediaItem.mediaMetadata.extras ?: return
 
-        val podcastId = extras.getInt("PODCAST_ID")
-        val episodeId = extras.getLong("EPISODE_ID")
+        val feedUrl = extras.getString("FEED_URL") ?: return
+        val guid = extras.getLong("GUID")
 
         try {
+            // TODO: position or duration is messed up
             withContext(Dispatchers.IO) {
                 databaseRepository.saveProgress(
                     PodcastProgressEntity(
-                        podcastId = podcastId,
-                        episodeId = episodeId,
+                        feedUrl = feedUrl,
+                        guid = guid,
                         position = currentPosition,
                         duration = totalDuration,
                         finished = finished
@@ -418,6 +426,7 @@ class PodcastAudioService : MediaSessionService() {
         Log.d(tag, "onTaskRemoved")
         currentMediaItem?.let {
             coroutineScope.launch {
+                Log.d(tag, "5")
                 saveCurrentProgress(
                     currentMediaItem = it,
                     currentPosition = mediaSession?.player?.currentPosition ?: 0,

@@ -2,10 +2,10 @@ package com.example.podcastapp.data.local.entities
 
 import androidx.room.Entity
 
-@Entity(tableName = "podcast_progress", primaryKeys = ["podcastId", "episodeId"])
+@Entity(tableName = "podcast_progress", primaryKeys = ["feedUrl", "guid"])
 data class PodcastProgressEntity(
-    val podcastId: Int,
-    val episodeId: Long,
+    val feedUrl: String,
+    val guid: Long,
     val position: Long,
     val duration: Long,
     val timestamp: Long = System.currentTimeMillis(),

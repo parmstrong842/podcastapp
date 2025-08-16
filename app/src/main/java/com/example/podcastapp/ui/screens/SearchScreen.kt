@@ -56,7 +56,7 @@ import kotlinx.coroutines.launch
 fun SearchScreen(
     viewModel: SearchViewModel = viewModel(factory = AppViewModelProvider.Factory),
     navigateBack: () -> Unit,
-    navigateToPodcast: (Int) -> Unit
+    navigateToPodcast: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val focusRequester = remember { FocusRequester() }
@@ -116,7 +116,7 @@ fun SearchScreen(
 private fun Success(
     listState: LazyListState,
     podcasts: List<Podcast>,
-    navigateToPodcast: (Int) -> Unit,
+    navigateToPodcast: (String) -> Unit,
 ) {
 
     LazyColumn(
@@ -128,7 +128,7 @@ private fun Success(
         items(podcasts) { podcast ->
             PodcastItem(
                 podcast = podcast,
-                onClick = { navigateToPodcast(podcast.id) },
+                onClick = { navigateToPodcast(podcast.url) },
             )
         }
     }

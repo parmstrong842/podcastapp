@@ -38,6 +38,7 @@ import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
 import com.example.podcastapp.R
 import com.example.podcastapp.data.local.entities.SubscribedPodcastEntity
+import com.example.podcastapp.ui.theme.Dimens.SIDE_PADDING
 import com.example.podcastapp.ui.theme.PodcastAppTheme
 import com.example.podcastapp.ui.viewmodel.AppViewModelProvider
 import com.example.podcastapp.ui.viewmodel.HomeViewModel
@@ -45,7 +46,7 @@ import com.example.podcastapp.ui.viewmodel.HomeViewModel
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = viewModel(factory = AppViewModelProvider.Factory),
-    navigateToPodcast: (Int) -> Unit
+    navigateToPodcast: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -59,7 +60,7 @@ fun HomeScreen(
 fun HomeScreenUI(
     modifier: Modifier = Modifier,
     subscriptions: List<SubscribedPodcastEntity>,
-    navigateToPodcast: (Int) -> Unit
+    navigateToPodcast: (String) -> Unit
 ) {
     Column(modifier.fillMaxSize()) {
         PodcastTopBar(text = "PodcastApp")
@@ -72,7 +73,7 @@ fun HomeScreenUI(
             items(subscriptions) {
                 SubscriptionImage(
                     image = it.image,
-                    navigateToPodcast = { navigateToPodcast(it.id) }
+                    navigateToPodcast = { navigateToPodcast(it.feedUrl) }
                 )
             }
         }
@@ -154,12 +155,12 @@ fun PodcastTopBar(
 private fun HomeScreenUIPreview() {
 
     val subscriptions = listOf(
-        SubscribedPodcastEntity(55283,"","https://image.simplecastcdn.com/images/4638a61f-6fe2-4fc0-9398-c6118a63c1d6/65ba0b3e-50c6-4d13-aa12-40a6873e255b/3000x3000/microsoftteams-image-5.png?aid=rss_feed"),
-        SubscribedPodcastEntity(494678,"","https://image.simplecastcdn.com/images/84f7d3f2-4d0e-48c8-bcb0-8d047036d197/a11d3578-759a-4eab-85cb-3122acf0cf2c/3000x3000/uploads-2f1597248400434-7n83k6cpei4-f32b2c9a3ec6af4c375061698856ab9d-2flocked-on-sabres-bg.jpg?aid=rss_feed"),
-        SubscribedPodcastEntity(550168,"","https://megaphone.imgix.net/podcasts/8e5bcebc-ca16-11ee-89f0-0fa0b9bdfc7c/image/11f568857987283428d892402e623b21.jpg?ixlib=rails-4.3.1&max-w=3000&max-h=3000&fit=crop&auto=format,compress"),
-        SubscribedPodcastEntity(617941,"","https://twoheadednerd.com/wp-content/uploads/2024/06/cropped-THN-New-Logo-1-32x32.png"),
-        SubscribedPodcastEntity(734025,"","https://images.castfire.com/image/647/0/0/0/0-7935483.jpg"),
-        SubscribedPodcastEntity(745268,"","https://megaphone.imgix.net/podcasts/6b2eb828-8e0b-11ea-b1dd-7f0b90d2a3ba/image/ff880f4262671ea9f60de03a153b607c.png?ixlib=rails-4.3.1&max-w=3000&max-h=3000&fit=crop&auto=format,compress")
+        SubscribedPodcastEntity("","https://image.simplecastcdn.com/images/4638a61f-6fe2-4fc0-9398-c6118a63c1d6/65ba0b3e-50c6-4d13-aa12-40a6873e255b/3000x3000/microsoftteams-image-5.png?aid=rss_feed", ""),
+        SubscribedPodcastEntity("","https://image.simplecastcdn.com/images/84f7d3f2-4d0e-48c8-bcb0-8d047036d197/a11d3578-759a-4eab-85cb-3122acf0cf2c/3000x3000/uploads-2f1597248400434-7n83k6cpei4-f32b2c9a3ec6af4c375061698856ab9d-2flocked-on-sabres-bg.jpg?aid=rss_feed", ""),
+        SubscribedPodcastEntity("","https://megaphone.imgix.net/podcasts/8e5bcebc-ca16-11ee-89f0-0fa0b9bdfc7c/image/11f568857987283428d892402e623b21.jpg?ixlib=rails-4.3.1&max-w=3000&max-h=3000&fit=crop&auto=format,compress", ""),
+        SubscribedPodcastEntity("","https://twoheadednerd.com/wp-content/uploads/2024/06/cropped-THN-New-Logo-1-32x32.png", ""),
+        SubscribedPodcastEntity("","https://images.castfire.com/image/647/0/0/0/0-7935483.jpg", ""),
+        SubscribedPodcastEntity("","https://megaphone.imgix.net/podcasts/6b2eb828-8e0b-11ea-b1dd-7f0b90d2a3ba/image/ff880f4262671ea9f60de03a153b607c.png?ixlib=rails-4.3.1&max-w=3000&max-h=3000&fit=crop&auto=format,compress", "")
     )
     PodcastAppTheme {
         HomeScreenUI(

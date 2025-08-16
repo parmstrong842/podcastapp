@@ -7,6 +7,8 @@ import com.example.podcastapp.data.AppDataContainer
 // TODO: notification play button out of sync with player; pass button state when creating view
 // TODO: make sure app works in landscape mode
 // TODO: if app is in background and is paused the service gets killed after a while; don't lose current media item
+// TODO: bug with saveProgress. if I pause the media and seek then put app in background it doesn't save the progress
+// TODO: add rss feeds
 
 class PodcastApplication : Application() {
 

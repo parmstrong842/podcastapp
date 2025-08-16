@@ -1,6 +1,51 @@
 package com.example.podcastapp.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.podcastapp.data.local.DatabaseRepository
+import com.example.podcastapp.ui.components.PodcastEpItem
+import com.example.podcastapp.utils.Resource
+import com.example.podcastapp.utils.toPodcastEpItem
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
-class QueueViewModel() : ViewModel() {
+
+data class QueueFetchState(
+    val queue: List<PodcastEpItem>
+)
+
+data class QueueUiState(
+    val queueFetchState: Resource<QueueFetchState>
+)
+
+class QueueViewModel(
+    private val databaseRepository: DatabaseRepository
+) : ViewModel() {
+
+    private val _uiState: MutableStateFlow<QueueUiState> = MutableStateFlow(QueueUiState(
+        queueFetchState = Resource.Loading
+    ))
+    val uiState = _uiState.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            databaseRepository
+                .getQueueFlow()
+                .catch {
+                    _uiState.update { it.copy(queueFetchState = Resource.Error) }
+                }
+                .collect { list ->
+                    _uiState.update { state ->
+                        state.copy(
+                            queueFetchState = Resource.Success(
+                                QueueFetchState(queue = list.map { it.toPodcastEpItem() })
+                            )
+                        )
+                    }
+                }
+        }
+    }
 }

@@ -2,6 +2,7 @@ package com.example.podcastapp.ui.screens
 
 import android.content.res.Configuration
 import android.os.Bundle
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.exponentialDecay
@@ -91,31 +92,15 @@ enum class PlayerState{
 @Composable
 fun PodcastPlayer(
     modifier: Modifier = Modifier,
+    state: AnchoredDraggableState<PlayerState>,
     audioControllerManager: IAudioControllerManager,
-    initialPlayerState: PlayerState = PlayerState.Collapsed,
-    navigateToPodcast: (Int) -> Unit,
+    navigateToPodcast: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
 
     val adjustedHeight = with(density) {(configuration.screenHeightDp.dp - Dimens.playerCollapsedHeight - Dimens.navigationBarHeight).toPx()}
-
-    val anchors = DraggableAnchors {
-        PlayerState.Expanded at 0f
-        PlayerState.Collapsed at adjustedHeight
-    }
-
-    val state = remember {
-        AnchoredDraggableState(
-            initialValue = initialPlayerState,
-            anchors = anchors,
-            positionalThreshold = { totalDistance: Float ->  totalDistance * 0.5f},
-            velocityThreshold = { with(density) { 80.dp.toPx() } },
-            snapAnimationSpec = tween(),
-            decayAnimationSpec = exponentialDecay()
-        )
-    }
 
     val anchorFaction = (state.requireOffset() / adjustedHeight)
 
@@ -180,7 +165,7 @@ fun PodcastPlayer(
             while (true) {
                 progress = audioControllerManager.getProgress()
                 bufferProgress = audioControllerManager.getBufferProgress()
-                delay(2000)
+                delay(500L)
             }
         }
 
@@ -239,6 +224,14 @@ fun PodcastPlayer(
             )
         }
     }
+
+    BackHandler(
+        enabled = state.currentValue == PlayerState.Expanded,
+    ) {
+        scope.launch {
+            state.animateTo(PlayerState.Collapsed)
+        }
+    }
 }
 
 @Composable
@@ -248,7 +241,7 @@ private fun ExpandedPlayer(
     currentProgress: Float,
     currentBufferProgress: Float,
     audioControllerManager: IAudioControllerManager,
-    navigateToPodcast: (Int) -> Unit,
+    navigateToPodcast: (String) -> Unit,
 ) {
     var showBottomSheet by remember { mutableStateOf(false) }
     val mediaInfo = audioControllerManager.currentMediaInfo
@@ -273,7 +266,7 @@ private fun ExpandedPlayer(
                 modifier = Modifier
                     .alpha(0.75f)
                     .clickable {
-                        audioControllerManager.getCurrentPodcastId()?.let {
+                        audioControllerManager.getCurrentPodcastFeedUrl()?.let {
                             navigateToPodcast(it)
                         }
                     },
@@ -496,7 +489,7 @@ private fun SleepTimerOption(
     sheetState: SheetState,
     scope: CoroutineScope,
     hideBottomSheet: () -> Unit,
-    audioControllerManager: IAudioControllerManager
+    audioControllerManager: IAudioControllerManager,
 ) {
     Row(
         modifier = Modifier
@@ -678,21 +671,57 @@ private fun DrawScope.drawLinearIndicator(
     )
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Preview
 @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES or Configuration.UI_MODE_TYPE_NORMAL)
 @Composable
 private fun PodcastPlayer_Collapsed_Preview() {
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    val adjustedHeight = with(density) {(configuration.screenHeightDp.dp - Dimens.playerCollapsedHeight - Dimens.navigationBarHeight).toPx()}
+    val anchors = DraggableAnchors {
+        PlayerState.Expanded at 0f
+        PlayerState.Collapsed at adjustedHeight
+    }
+    val state = remember {
+        AnchoredDraggableState(
+            initialValue = PlayerState.Collapsed,
+            anchors = anchors,
+            positionalThreshold = { totalDistance: Float ->  totalDistance * 0.5f},
+            velocityThreshold = { with(density) { 80.dp.toPx() } },
+            snapAnimationSpec = tween(),
+            decayAnimationSpec = exponentialDecay()
+        )
+    }
     PodcastAppTheme() {
-        PodcastPlayer(audioControllerManager = AudioControllerManagerMock()) { }
+        PodcastPlayer(state = state, audioControllerManager = AudioControllerManagerMock()) { }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Preview(uiMode = Configuration.UI_MODE_NIGHT_YES or Configuration.UI_MODE_TYPE_NORMAL)
 @Preview
 @Composable
 private fun PodcastPlayer_Expanded_Preview() {
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    val adjustedHeight = with(density) {(configuration.screenHeightDp.dp - Dimens.playerCollapsedHeight - Dimens.navigationBarHeight).toPx()}
+    val anchors = DraggableAnchors {
+        PlayerState.Expanded at 0f
+        PlayerState.Collapsed at adjustedHeight
+    }
+    val state = remember {
+        AnchoredDraggableState(
+            initialValue = PlayerState.Expanded,
+            anchors = anchors,
+            positionalThreshold = { totalDistance: Float ->  totalDistance * 0.5f},
+            velocityThreshold = { with(density) { 80.dp.toPx() } },
+            snapAnimationSpec = tween(),
+            decayAnimationSpec = exponentialDecay()
+        )
+    }
     PodcastAppTheme {
-        PodcastPlayer(Modifier, AudioControllerManagerMock(), PlayerState.Expanded) { }
+        PodcastPlayer(Modifier, state, AudioControllerManagerMock()) { }
     }
 }
 

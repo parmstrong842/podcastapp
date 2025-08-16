@@ -2,9 +2,9 @@ package com.example.podcastapp.data.local.entities
 
 import androidx.room.Entity
 
-@Entity(tableName = "subscriptions", primaryKeys = ["id"])
+@Entity(tableName = "subscriptions", primaryKeys = ["feedUrl"])
 data class SubscribedPodcastEntity(
-    val id: Int,
     val title: String,
-    val image: String?
+    val image: String?,
+    val feedUrl: String
 )

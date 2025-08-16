@@ -46,6 +46,7 @@ class AppDataContainer(private val context: Context) {
     }
 
     val databaseRepository: DatabaseRepository by lazy {
-        DatabaseRepositoryImpl(PodcastAppDatabase.getDatabase(context).databaseDao())
+        val db = PodcastAppDatabase.getDatabase(context)
+        DatabaseRepositoryImpl(db.databaseDao(), db)
     }
 }

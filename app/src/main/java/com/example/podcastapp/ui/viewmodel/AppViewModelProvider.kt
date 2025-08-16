@@ -22,7 +22,9 @@ object AppViewModelProvider {
             UserViewModel()
         }
         initializer {
-            QueueViewModel()
+            QueueViewModel(
+                podcastApplication().container.databaseRepository
+            )
         }
         initializer {
             DownloadsViewModel()

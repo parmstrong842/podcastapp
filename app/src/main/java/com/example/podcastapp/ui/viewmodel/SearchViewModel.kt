@@ -86,16 +86,4 @@ class SearchViewModel(
             )
         }
     }
-
-    fun subscribeToPodcast(podcast: Podcast) {
-        viewModelScope.launch {
-            databaseRepository.insertSubscription(
-                SubscribedPodcastEntity(
-                    id = podcast.id,
-                    title = podcast.title,
-                    image = podcast.image
-                )
-            )
-        }
-    }
 }

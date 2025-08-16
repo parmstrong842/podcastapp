@@ -31,8 +31,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,15 +47,14 @@ import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
 import com.example.podcastapp.R
-import com.example.podcastapp.ui.components.PodcastEpisodeItem
+import com.example.podcastapp.ui.components.PodcastEpisodeCard
 import com.example.podcastapp.ui.theme.PodcastAppTheme
 import com.example.podcastapp.ui.viewmodel.AppViewModelProvider
-import com.example.podcastapp.ui.viewmodel.PodcastEpItem
+import com.example.podcastapp.ui.components.PodcastEpItem
 import com.example.podcastapp.ui.viewmodel.PodcastFetchState
 import com.example.podcastapp.ui.viewmodel.PodcastUiState
 import com.example.podcastapp.ui.viewmodel.PodcastViewModel
 import com.example.podcastapp.utils.Resource
-import com.google.common.collect.Multimaps.index
 
 @Composable
 fun PodcastScreen(
@@ -79,6 +76,13 @@ fun PodcastScreen(
                 viewModel.subscribeToPodcast()
             }
         },
+        onClickQueue = {
+            if (it.enqueued) {
+                viewModel.removeFromQueue(it)
+            } else {
+                viewModel.enqueue(it)
+            }
+        },
         navigateToEpisode = navigateToEpisode,
         updateSortByTabSelection = { viewModel.updateSortByTabSelection(it) }
     )
@@ -91,6 +95,7 @@ fun PodcastScreenUI(
     navigateBack: () -> Unit,
     playMedia: (PodcastEpItem) -> Unit,
     onClickSubscribe: (Boolean) -> Unit,
+    onClickQueue: (PodcastEpItem) -> Unit,
     navigateToEpisode: (Long) -> Unit,
     updateSortByTabSelection: (String) -> Unit
 ) {
@@ -108,6 +113,7 @@ fun PodcastScreenUI(
                     episodes = state.data.episodes,
                     playMedia = playMedia,
                     onClickSubscribe = onClickSubscribe,
+                    onClickQueue = onClickQueue,
                     navigateToEpisode = navigateToEpisode,
                     updateSortByTabSelection = updateSortByTabSelection
                 )
@@ -134,6 +140,7 @@ private fun Success(
     episodes: List<PodcastEpItem>,
     playMedia: (PodcastEpItem) -> Unit,
     onClickSubscribe: (Boolean) -> Unit,
+    onClickQueue: (PodcastEpItem) -> Unit,
     navigateToEpisode: (Long) -> Unit,
     updateSortByTabSelection: (String) -> Unit
 ) {
@@ -163,7 +170,14 @@ private fun Success(
         )
         LazyColumn {
             items(episodes) {
-                PodcastEpisodeItem(it, playMedia, navigateToEpisode)
+                PodcastEpisodeCard(
+                    pod = it,
+                    playMedia = playMedia,
+                    onClickQueue = {
+                        onClickQueue(it)
+                    },
+                    navigateToEpisode = navigateToEpisode
+                )
             }
         }
     }
@@ -319,6 +333,6 @@ private fun PodcastScreenUIPreview() {
         )
     )
     PodcastAppTheme {
-        PodcastScreenUI(uiState, navigateBack = {}, playMedia = {}, onClickSubscribe = {}, navigateToEpisode = {}, updateSortByTabSelection = {})
+        PodcastScreenUI(uiState, navigateBack = {}, playMedia = {}, onClickSubscribe = {}, navigateToEpisode = {}, updateSortByTabSelection = {}, onClickQueue = {})
     }
 }

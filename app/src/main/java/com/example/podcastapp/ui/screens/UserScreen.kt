@@ -1,6 +1,5 @@
 package com.example.podcastapp.ui.screens
 
-import android.R.attr.top
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,11 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,15 +30,14 @@ import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
 import com.example.podcastapp.R
-import com.example.podcastapp.ui.components.PodcastEpisodeItem
+import com.example.podcastapp.ui.components.PodcastEpisodeCard
 import com.example.podcastapp.ui.theme.Dimens
 import com.example.podcastapp.ui.viewmodel.AppViewModelProvider
 import com.example.podcastapp.ui.viewmodel.DownloadsViewModel
 import com.example.podcastapp.ui.viewmodel.HistoryViewModel
-import com.example.podcastapp.ui.viewmodel.PodcastEpItem
+import com.example.podcastapp.ui.components.PodcastEpItem
 import com.example.podcastapp.ui.viewmodel.QueueViewModel
 import com.example.podcastapp.ui.viewmodel.SubscriptionsViewModel
-import com.example.podcastapp.ui.viewmodel.UserUiState
 import com.example.podcastapp.ui.viewmodel.UserViewModel
 import com.example.podcastapp.utils.Resource
 import kotlinx.coroutines.launch
@@ -52,7 +46,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun UserScreen(
     playMedia: (PodcastEpItem) -> Unit,
-    navigateToPodcast: (Int) -> Unit,
+    navigateToPodcast: (String) -> Unit,
     navigateToEpisode: (Long) -> Unit,
     viewModel: UserViewModel = viewModel(factory = AppViewModelProvider.Factory)
 ) {
@@ -95,7 +89,7 @@ fun UserScreen(
                 .padding(bottom = Dimens.playerCollapsedHeight),
         ) { pageIndex ->
             when (pageIndex) {
-                0 -> QueueContent()
+                0 -> QueueContent(playMedia, navigateToEpisode)
                 1 -> DownloadsContent()
                 2 -> HistoryContent(playMedia, navigateToEpisode)
                 3 -> SubscriptionsContent(navigateToPodcast = navigateToPodcast)
@@ -106,13 +100,47 @@ fun UserScreen(
 }
 
 @Composable
-fun QueueContent(viewModel: QueueViewModel = viewModel(factory = AppViewModelProvider.Factory)) {
+fun QueueContent(
+    playMedia: (PodcastEpItem) -> Unit,
+    navigateToEpisode: (Long) -> Unit,
+    viewModel: QueueViewModel = viewModel(factory = AppViewModelProvider.Factory)
+) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    Box {
+        when (val state = uiState.queueFetchState) {
+            is Resource.Success -> {
+                LazyColumn {
+                    items(state.data.queue) {
+                        //PodcastEpisodeCard(it, playMedia, navigateToEpisode) // TODO: change to queue item that can be rearranged
+                    }
+                }
+            }
+            is Resource.Loading -> {
+                CircularProgressIndicator(
+                    Modifier
+                        .align(Alignment.Center)
+                        .padding(top = 32.dp)
+                )
+            }
+            is Resource.Error -> {
+                Text(
+                    text = "Error",
+                )
+            }
+            is Resource.Idle -> {
+                Text(
+                    text = "Idle",
+                )
+            }
+        }
+    }
 
 }
 
 @Composable
 fun DownloadsContent(viewModel: DownloadsViewModel = viewModel(factory = AppViewModelProvider.Factory)) {
-
+    // TODO:  
 }
 
 @Composable
@@ -128,7 +156,18 @@ fun HistoryContent(
             is Resource.Success -> {
                 LazyColumn {
                     items(state.data.history) {
-                        PodcastEpisodeItem(it, playMedia, navigateToEpisode)
+                        PodcastEpisodeCard(
+                            pod = it,
+                            playMedia = playMedia,
+                            onClickQueue = {
+                                if (it.enqueued) {
+                                    viewModel.removeFromQueue(it)
+                                } else {
+                                    viewModel.enqueue(it)
+                                }
+                            },
+                            navigateToEpisode = navigateToEpisode
+                        )
                     }
                 }
             }
@@ -157,14 +196,14 @@ fun HistoryContent(
 @Composable
 fun SubscriptionsContent(
     viewModel: SubscriptionsViewModel = viewModel(factory = AppViewModelProvider.Factory),
-    navigateToPodcast: (Int) -> Unit
+    navigateToPodcast: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     LazyColumn {
         items(uiState.subscriptions) {
             Row(
-                modifier = Modifier.clickable { navigateToPodcast(it.id) },
+                modifier = Modifier.clickable { navigateToPodcast(it.feedUrl) },
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 GlideImage(

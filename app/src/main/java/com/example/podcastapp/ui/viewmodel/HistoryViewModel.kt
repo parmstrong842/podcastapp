@@ -3,12 +3,12 @@ package com.example.podcastapp.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.podcastapp.data.local.DatabaseRepository
+import com.example.podcastapp.ui.components.PodcastEpItem
 import com.example.podcastapp.utils.Resource
 import com.example.podcastapp.utils.toPodcastEpItem
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -34,18 +34,30 @@ class HistoryViewModel(
         viewModelScope.launch {
             databaseRepository
                 .getHistoryFlow()
-                .catch { throwable ->
+                .catch {
                     _uiState.update { it.copy(historyFetchState = Resource.Error) }
                 }
                 .collect { list ->
-                    _uiState.update {
-                        it.copy(
+                    _uiState.update { state ->
+                        state.copy(
                             historyFetchState = Resource.Success(
                                 HistoryFetchState(history = list.map { it.toPodcastEpItem() })
                             )
                         )
                     }
                 }
+        }
+    }
+
+    fun enqueue(item: PodcastEpItem) {
+        viewModelScope.launch {
+            databaseRepository.enqueue(item)
+        }
+    }
+
+    fun removeFromQueue(item: PodcastEpItem) {
+        viewModelScope.launch {
+            databaseRepository.remove("${item.feedUrl}#${item.guid}")
         }
     }
 }

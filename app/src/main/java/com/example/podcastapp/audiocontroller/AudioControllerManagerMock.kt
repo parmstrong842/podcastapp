@@ -3,7 +3,7 @@ package com.example.podcastapp.audiocontroller
 import android.os.Bundle
 import androidx.core.net.toUri
 import androidx.media3.session.MediaController
-import com.example.podcastapp.ui.viewmodel.PodcastEpItem
+import com.example.podcastapp.ui.components.PodcastEpItem
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -47,8 +47,8 @@ class AudioControllerManagerMock(
 
     override fun sendCustomCommand(action: String, extras: Bundle) {}
 
-    override fun getCurrentPodcastId(): Int? {
-        return currentPodcastId
+    override fun getCurrentPodcastFeedUrl(): String {
+        return "test feedUrl"
     }
 
     override fun getMediaController(): MediaController? {
