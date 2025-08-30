@@ -14,4 +14,6 @@ interface RemoteRepository {
     suspend fun episodesByFeedID(id: Int): EpisodeFeedResponse
 
     suspend fun episodeByID(id: Long): EpisodeResponse
+
+    suspend fun getRssFeedContent(feedUrl: String): okhttp3.ResponseBody
 }

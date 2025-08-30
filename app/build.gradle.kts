@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.compose.compiler)
     id("com.google.devtools.ksp") version "2.1.0-1.0.29"
+    alias(libs.plugins.jetbrains.kotlin.serialization)
 }
 
 val localProperties = Properties()
@@ -16,7 +17,7 @@ if (localPropertiesFile.exists()) {
 
 android {
     namespace = "com.example.podcastapp"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.podcastapp"
@@ -82,6 +83,11 @@ dependencies {
     implementation(libs.media3.session)
     implementation(libs.logging.interceptor)
     implementation(libs.androidx.compose.material.iconsExtended)
+    implementation(libs.androidx.navigation3.ui)
+    implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.androidx.lifecycle.viewmodel.navigation3)
+    implementation(libs.kotlinx.serialization.core)
+    implementation(libs.rssparser)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

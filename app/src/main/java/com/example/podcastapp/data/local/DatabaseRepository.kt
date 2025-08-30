@@ -1,44 +1,27 @@
 package com.example.podcastapp.data.local
 
-import com.example.podcastapp.data.local.entities.EpisodeHistoryEntity
-import com.example.podcastapp.data.local.entities.PodcastProgressEntity
-import com.example.podcastapp.data.local.entities.QueueEntity
-import com.example.podcastapp.data.local.entities.SubscribedPodcastEntity
+import com.example.podcastapp.data.local.entity.EpisodeStateEntity
+import com.example.podcastapp.data.local.entity.PodcastEntity
+import com.example.podcastapp.data.local.model.EpisodeProgress
+import com.example.podcastapp.data.local.model.EpisodeWithState
 import com.example.podcastapp.ui.components.PodcastEpItem
 import kotlinx.coroutines.flow.Flow
 
+
 interface DatabaseRepository {
+    suspend fun subscribe(feedUrl: String, podcastTitle: String, image: String?)
 
-    fun getAllSubscriptionsFlow(): Flow<List<SubscribedPodcastEntity>>
+    suspend fun unsubscribe(feedUrl: String)
 
-    suspend fun getSubscription(feedUrl: String): SubscribedPodcastEntity?
+    fun getAllSubscriptionsFlow(): Flow<List<PodcastEntity>>
 
-    suspend fun insertSubscription(item: SubscribedPodcastEntity)
+    suspend fun isSubscribed(feedUrl: String): Boolean?
 
-    suspend fun updateSubscription(item: SubscribedPodcastEntity)
+    suspend fun saveProgress(feedUrl: String, guid: String, position: Long, duration: Long, finished: Boolean)
 
-    suspend fun deleteSubscription(item: SubscribedPodcastEntity)
+    suspend fun getProgress(feedUrl: String, guid: String): EpisodeProgress?
 
+    suspend fun insertEpisodeHistory(pod: PodcastEpItem)
 
-    suspend fun saveProgress(progress: PodcastProgressEntity)
-
-    suspend fun getProgress(feedUrl: String, guid: Long): PodcastProgressEntity?
-
-    suspend fun getAllProgressForPodcast(feedUrl: String): List<PodcastProgressEntity>
-
-    suspend fun getRecentProgress(): List<PodcastProgressEntity>
-
-
-    fun getHistoryFlow(): Flow<List<EpisodeHistoryEntity>>
-
-    suspend fun insertEpisodeHistory(history: EpisodeHistoryEntity)
-
-
-    fun getQueueFlow(): Flow<List<QueueEntity>>
-
-    suspend fun enqueue(podcastEpItem: PodcastEpItem)
-
-    suspend fun remove(key: String)
-
-    suspend fun move(key: String, newIndex: Int)
+    fun getHistoryFlow(): Flow<List<PodcastEpItem>>
 }

@@ -18,9 +18,7 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionToken
 import com.example.podcastapp.data.local.DatabaseRepository
-import com.example.podcastapp.data.local.entities.PodcastProgressEntity
 import com.example.podcastapp.ui.components.PodcastEpItem
-import com.example.podcastapp.utils.toEpisodeHistoryEntity
 import com.google.common.util.concurrent.MoreExecutors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,6 +31,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import androidx.core.net.toUri
 import androidx.core.content.edit
+import com.example.podcastapp.data.local.model.EpisodeProgress
 
 private const val tag = "AudioControllerManager"
 
@@ -44,7 +43,7 @@ data class MediaInfo(
 
 data class SavedMediaItem(
     val feedUrl: String,
-    val guid: Long,
+    val guid: String,
     val enclosureUri: String,
     val episodeName: String,
     val image: String,
@@ -166,20 +165,20 @@ class AudioControllerManagerImpl(
 
     private fun prepareMediaItem(
         enclosure: String,
-        episodeName: String,
-        image: String,
-        title: String,
+        episodeTitle: String,
+        episodeImage: String,
+        podcastTitle: String,
         extras: Bundle,
-        savedProgress: PodcastProgressEntity?
+        savedProgress: EpisodeProgress?
     ) {
         mediaController?.let { controller ->
             val mediaItem = MediaItem.Builder()
                 .setUri(enclosure)
                 .setMediaMetadata(
                     MediaMetadata.Builder()
-                        .setTitle(episodeName)
-                        .setArtworkUri(image.toUri())
-                        .setArtist(title)
+                        .setTitle(episodeTitle)
+                        .setArtworkUri(episodeImage.toUri())
+                        .setArtist(podcastTitle)
                         .setExtras(extras)
                         .build()
                 )
@@ -244,23 +243,22 @@ class AudioControllerManagerImpl(
         playMediaJob = scope.launch {
             val extras = Bundle().apply {
                 putString("FEED_URL", pod.feedUrl)
-                putLong("GUID", pod.guid)
+                putString("GUID", pod.guid)
             }
 
             val mediaItemToSave = SavedMediaItem(
                 feedUrl = pod.feedUrl,
                 guid = pod.guid,
                 enclosureUri = pod.enclosureUrl,
-                episodeName = pod.episodeName,
-                image = pod.image,
+                episodeName = pod.episodeTitle,
+                image = pod.episodeImage,
                 title = pod.podcastTitle,
             )
             saveCurrentMediaItem(mediaItemToSave)
 
             val savedProgress = databaseRepository.getProgress(pod.feedUrl, pod.guid)
-            prepareMediaItem(pod.enclosureUrl, pod.episodeName, pod.image, pod.podcastTitle, extras, savedProgress)
-
-            databaseRepository.insertEpisodeHistory(pod.toEpisodeHistoryEntity())
+            prepareMediaItem(pod.enclosureUrl, pod.episodeTitle, pod.episodeImage, pod.podcastTitle, extras, savedProgress)
+            databaseRepository.insertEpisodeHistory(pod)
 
             mediaController?.play()
         }
@@ -289,7 +287,7 @@ class AudioControllerManagerImpl(
     private fun saveCurrentMediaItem(pod: SavedMediaItem) {
         sharedPrefs.edit {
             putString("current_media_item_feed_url", pod.feedUrl)
-            putLong("current_media_item_guid", pod.guid)
+            putString("current_media_item_guid", pod.guid)
             putString("current_media_item_enclosure", pod.enclosureUri)
             putString("current_media_item_episode_name", pod.episodeName)
             putString("current_media_item_image", pod.image)
@@ -304,7 +302,7 @@ class AudioControllerManagerImpl(
             }
 
             val feedUrl = sharedPrefs.getString("current_media_item_feed_url", "") ?: ""
-            val guid = sharedPrefs.getLong("current_media_item_guid", -1L)
+            val guid = sharedPrefs.getString("current_media_item_guid", "")
             val enclosure = sharedPrefs.getString("current_media_item_enclosure", "") ?: ""
             val episodeName = sharedPrefs.getString("current_media_item_episode_name", "") ?: ""
             val image = sharedPrefs.getString("current_media_item_image", "") ?: ""
@@ -312,12 +310,12 @@ class AudioControllerManagerImpl(
 
             val extras = Bundle().apply {
                 putString("FEED_URL", feedUrl)
-                putLong("GUID", guid)
+                putString("GUID", guid)
             }
 
-            val savedProgress = databaseRepository.getProgress(feedUrl, guid)
-
-            prepareMediaItem(enclosure, episodeName, image, title, extras, savedProgress)
+//            val savedProgress = databaseRepository.getProgress(feedUrl, guid)
+//
+//            prepareMediaItem(enclosure, episodeName, image, title, extras, savedProgress)
         }
     }
 

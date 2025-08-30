@@ -22,21 +22,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
 import com.example.podcastapp.R
 import com.example.podcastapp.audiocontroller.IAudioControllerManager
-import com.example.podcastapp.ui.viewmodel.AppViewModelProvider
 import com.example.podcastapp.ui.viewmodel.EpisodeViewModel
 
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 fun EpisodeScreen(
+    viewModel: EpisodeViewModel,
     navigateBack: () -> Unit,
-    audioControllerManager: IAudioControllerManager,
-    viewModel: EpisodeViewModel = viewModel(factory = AppViewModelProvider.Factory)
+    audioControllerManager: IAudioControllerManager
 ) {
     val uiState by viewModel.uiState.collectAsState()
 

@@ -1,4 +1,4 @@
-package com.example.podcastapp.ui.screens
+package com.example.podcastapp.ui.components
 
 import android.content.res.Configuration
 import android.os.Bundle
@@ -62,6 +62,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -73,7 +74,6 @@ import com.bumptech.glide.integration.compose.placeholder
 import com.example.podcastapp.R
 import com.example.podcastapp.audiocontroller.AudioControllerManagerMock
 import com.example.podcastapp.audiocontroller.IAudioControllerManager
-import com.example.podcastapp.ui.components.MediaSeekSlider
 import com.example.podcastapp.ui.theme.Dimens
 import com.example.podcastapp.ui.theme.PodcastAppTheme
 import com.example.podcastapp.utils.formatTime
@@ -88,7 +88,7 @@ enum class PlayerState{
     Expanded
 }
 
-@OptIn(ExperimentalGlideComposeApi::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 fun PodcastPlayer(
     modifier: Modifier = Modifier,

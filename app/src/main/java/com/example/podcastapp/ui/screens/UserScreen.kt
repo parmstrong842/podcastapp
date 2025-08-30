@@ -24,31 +24,31 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
+import com.example.podcastapp.PodcastApplication
 import com.example.podcastapp.R
+import com.example.podcastapp.ui.components.PodcastEpItem
 import com.example.podcastapp.ui.components.PodcastEpisodeCard
 import com.example.podcastapp.ui.theme.Dimens
-import com.example.podcastapp.ui.viewmodel.AppViewModelProvider
 import com.example.podcastapp.ui.viewmodel.DownloadsViewModel
 import com.example.podcastapp.ui.viewmodel.HistoryViewModel
-import com.example.podcastapp.ui.components.PodcastEpItem
 import com.example.podcastapp.ui.viewmodel.QueueViewModel
 import com.example.podcastapp.ui.viewmodel.SubscriptionsViewModel
-import com.example.podcastapp.ui.viewmodel.UserViewModel
 import com.example.podcastapp.utils.Resource
 import kotlinx.coroutines.launch
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserScreen(
     playMedia: (PodcastEpItem) -> Unit,
     navigateToPodcast: (String) -> Unit,
-    navigateToEpisode: (Long) -> Unit,
-    viewModel: UserViewModel = viewModel(factory = AppViewModelProvider.Factory)
+    navigateToEpisode: (String) -> Unit,
 ) {
     val titles = listOf("Your queue", "Downloads", "History", "Subscriptions")
     val pagerState = rememberPagerState(pageCount = { titles.size })
@@ -102,8 +102,8 @@ fun UserScreen(
 @Composable
 fun QueueContent(
     playMedia: (PodcastEpItem) -> Unit,
-    navigateToEpisode: (Long) -> Unit,
-    viewModel: QueueViewModel = viewModel(factory = AppViewModelProvider.Factory)
+    navigateToEpisode: (String) -> Unit,
+    viewModel: QueueViewModel = viewModel(factory = QueueViewModel.Factory(LocalContext.current.applicationContext as PodcastApplication))
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -139,15 +139,15 @@ fun QueueContent(
 }
 
 @Composable
-fun DownloadsContent(viewModel: DownloadsViewModel = viewModel(factory = AppViewModelProvider.Factory)) {
+fun DownloadsContent(viewModel: DownloadsViewModel = viewModel(factory = DownloadsViewModel.Factory(LocalContext.current.applicationContext as PodcastApplication))) {
     // TODO:  
 }
 
 @Composable
 fun HistoryContent(
     playMedia: (PodcastEpItem) -> Unit,
-    navigateToEpisode: (Long) -> Unit,
-    viewModel: HistoryViewModel = viewModel(factory = AppViewModelProvider.Factory)
+    navigateToEpisode: (String) -> Unit,
+    viewModel: HistoryViewModel = viewModel(factory = HistoryViewModel.Factory(LocalContext.current.applicationContext as PodcastApplication))
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -160,11 +160,11 @@ fun HistoryContent(
                             pod = it,
                             playMedia = playMedia,
                             onClickQueue = {
-                                if (it.enqueued) {
-                                    viewModel.removeFromQueue(it)
-                                } else {
-                                    viewModel.enqueue(it)
-                                }
+//                                if (it.enqueued) {
+//                                    viewModel.removeFromQueue(it)
+//                                } else {
+//                                    viewModel.enqueue(it)
+//                                }
                             },
                             navigateToEpisode = navigateToEpisode
                         )
@@ -195,7 +195,7 @@ fun HistoryContent(
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 fun SubscriptionsContent(
-    viewModel: SubscriptionsViewModel = viewModel(factory = AppViewModelProvider.Factory),
+    viewModel: SubscriptionsViewModel = viewModel(factory = SubscriptionsViewModel.Factory(LocalContext.current.applicationContext as PodcastApplication)),
     navigateToPodcast: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -207,7 +207,7 @@ fun SubscriptionsContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 GlideImage(
-                    model = it.image,
+                    model = it.podcastImage,
                     contentDescription = "subscription image",
                     modifier = Modifier
                         .padding(end = 8.dp)
@@ -216,7 +216,7 @@ fun SubscriptionsContent(
                     loading = placeholder(R.drawable.ic_launcher_background),
                     failure = placeholder(R.drawable.ic_launcher_foreground)
                 )
-                Text(it.title)
+                Text(it.podcastTitle)
             }
         }
     }

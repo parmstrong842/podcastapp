@@ -12,10 +12,10 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
@@ -42,15 +42,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
 import com.example.podcastapp.R
+import com.example.podcastapp.ui.components.PodcastEpItem
 import com.example.podcastapp.ui.components.PodcastEpisodeCard
 import com.example.podcastapp.ui.theme.PodcastAppTheme
-import com.example.podcastapp.ui.viewmodel.AppViewModelProvider
-import com.example.podcastapp.ui.components.PodcastEpItem
 import com.example.podcastapp.ui.viewmodel.PodcastFetchState
 import com.example.podcastapp.ui.viewmodel.PodcastUiState
 import com.example.podcastapp.ui.viewmodel.PodcastViewModel
@@ -58,10 +56,10 @@ import com.example.podcastapp.utils.Resource
 
 @Composable
 fun PodcastScreen(
-    viewModel: PodcastViewModel = viewModel(factory = AppViewModelProvider.Factory),
+    viewModel: PodcastViewModel,
     navigateBack: () -> Unit,
     playMedia: (PodcastEpItem) -> Unit,
-    navigateToEpisode: (Long) -> Unit,
+    navigateToEpisode: (String) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -77,11 +75,11 @@ fun PodcastScreen(
             }
         },
         onClickQueue = {
-            if (it.enqueued) {
-                viewModel.removeFromQueue(it)
-            } else {
-                viewModel.enqueue(it)
-            }
+//            if (it.enqueued) {
+//                viewModel.removeFromQueue(it)
+//            } else {
+//                viewModel.enqueue(it)
+//            }
         },
         navigateToEpisode = navigateToEpisode,
         updateSortByTabSelection = { viewModel.updateSortByTabSelection(it) }
@@ -96,7 +94,7 @@ fun PodcastScreenUI(
     playMedia: (PodcastEpItem) -> Unit,
     onClickSubscribe: (Boolean) -> Unit,
     onClickQueue: (PodcastEpItem) -> Unit,
-    navigateToEpisode: (Long) -> Unit,
+    navigateToEpisode: (String) -> Unit,
     updateSortByTabSelection: (String) -> Unit
 ) {
     Column(
@@ -106,8 +104,8 @@ fun PodcastScreenUI(
         Box {
             when (val state = uiState.podcastFetchState) {
                 is Resource.Success -> Success(
-                    image = state.data.image,
-                    title = state.data.title,
+                    image = state.data.podcastImage,
+                    title = state.data.podcastTitle,
                     subscribed = state.data.subscribed,
                     sortByTabSelection = uiState.sortByTabSelection,
                     episodes = state.data.episodes,
@@ -141,7 +139,7 @@ private fun Success(
     playMedia: (PodcastEpItem) -> Unit,
     onClickSubscribe: (Boolean) -> Unit,
     onClickQueue: (PodcastEpItem) -> Unit,
-    navigateToEpisode: (Long) -> Unit,
+    navigateToEpisode: (String) -> Unit,
     updateSortByTabSelection: (String) -> Unit
 ) {
     Column(
@@ -324,8 +322,8 @@ private fun PodcastScreenUIPreview() {
         sortByTabSelection = "Latest",
         podcastFetchState = Resource.Success(
             PodcastFetchState(
-                title = "The Joe Rogan Experience",
-                image = "https://megaphone.imgix.net/podcasts/8e5bcebc-ca16-11ee-89f0-0fa0b9bdfc7c/image/11f568857987283428d892402e623b21.jpg?ixlib=rails-4.3.1&max-w=3000&max-h=3000&fit=crop&auto=format,compress",
+                podcastTitle = "The Joe Rogan Experience",
+                podcastImage = "https://megaphone.imgix.net/podcasts/8e5bcebc-ca16-11ee-89f0-0fa0b9bdfc7c/image/11f568857987283428d892402e623b21.jpg?ixlib=rails-4.3.1&max-w=3000&max-h=3000&fit=crop&auto=format,compress",
                 subscribed = false,
                 episodes = emptyList()
 

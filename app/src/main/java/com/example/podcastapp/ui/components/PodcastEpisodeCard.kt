@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -18,7 +17,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -31,18 +29,18 @@ import com.example.podcastapp.ui.theme.Dimens.SIDE_PADDING
 
 
 data class PodcastEpItem(
-    val image: String,
     val podcastTitle: String,
+    val podcastImage: String,
     val pubDate: String,
-    val episodeName: String,
-    val description: String,
+    val episodeTitle: String,
+    val episodeImage: String,
+    val episodeDescription: String,
     val enclosureUrl: String,
     val timeLeft: String,
     val progress: Float,
     val feedUrl: String,
-    val guid: Long,
-    val played: Boolean,
-    val enqueued: Boolean
+    val guid: String,
+    val finished: Boolean,
 )
 
 @OptIn(ExperimentalGlideComposeApi::class)
@@ -51,7 +49,7 @@ fun PodcastEpisodeCard(
     pod: PodcastEpItem,
     playMedia: (PodcastEpItem) -> Unit,
     onClickQueue: () -> Unit,
-    navigateToEpisode: (Long) -> Unit
+    navigateToEpisode: (String) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -63,7 +61,7 @@ fun PodcastEpisodeCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             GlideImage(
-                model = pod.image,
+                model = pod.episodeImage,
                 contentDescription = "episode image",
                 modifier = Modifier
                     .padding(end = 8.dp)
@@ -85,13 +83,13 @@ fun PodcastEpisodeCard(
             }
         }
         Text(
-            text = pod.episodeName,
+            text = pod.episodeTitle,
             fontSize = 18.sp,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
         )
         Text(
-            text = pod.description,
+            text = pod.episodeDescription,
             fontSize = 16.sp,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
@@ -103,28 +101,28 @@ fun PodcastEpisodeCard(
             PlayTimerButton(
                 timeLeft = pod.timeLeft,
                 progress = pod.progress,
-                played = pod.played,
+                finished = pod.finished,
                 onClick = { playMedia(pod) }
             )
-            if (!pod.enqueued) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
-                    contentDescription = "playlist add",
-                    modifier = Modifier
-                        .clickable {
-                            onClickQueue()
-                        }
-                )
-            } else {
-                Icon(
-                    painter = painterResource(R.drawable.outline_playlist_remove_24),
-                    contentDescription = "playlist remove",
-                    modifier = Modifier
-                        .clickable {
-                            onClickQueue()
-                        }
-                )
-            }
+//            if (!pod.enqueued) {
+//                Icon(
+//                    imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
+//                    contentDescription = "playlist add",
+//                    modifier = Modifier
+//                        .clickable {
+//                            onClickQueue()
+//                        }
+//                )
+//            } else {
+//                Icon(
+//                    painter = painterResource(R.drawable.outline_playlist_remove_24),
+//                    contentDescription = "playlist remove",
+//                    modifier = Modifier
+//                        .clickable {
+//                            onClickQueue()
+//                        }
+//                )
+//            }
             Icon(imageVector = Icons.Default.Download, contentDescription = "Download")
         }
         HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
@@ -136,18 +134,18 @@ fun PodcastEpisodeCard(
 private fun PodcastEpisodeItem_Enqueued_Preview() {
     PodcastEpisodeCard(
         pod = PodcastEpItem(
-            image = "https://example.com/image.jpg",
+            podcastImage = "https://example.com/image.jpg",
+            episodeImage = "https://example.com/image.jpg",
             podcastTitle = "Sample Episode Title",
             pubDate = "Jan 1, 2023",
-            episodeName = "Episode Name",
-            description = "This is a sample description of the podcast episode.",
+            episodeTitle = "Episode Name",
+            episodeDescription = "This is a sample description of the podcast episode.",
             enclosureUrl = "https://example.com/episode.mp3",
             timeLeft = "30:00",
             progress = 0.5f,
             feedUrl = "feedUrl",
-            guid = 123456789L,
-            played = false,
-            enqueued = true
+            guid = "123456789L",
+            finished = false,
         ),
         playMedia = {},
         navigateToEpisode = {},
@@ -160,18 +158,18 @@ private fun PodcastEpisodeItem_Enqueued_Preview() {
 private fun PodcastEpisodeItem_Not_Enqueued_Preview() {
     PodcastEpisodeCard(
         pod = PodcastEpItem(
-            image = "https://example.com/image.jpg",
+            podcastImage = "https://example.com/image.jpg",
+            episodeImage = "https://example.com/image.jpg",
             podcastTitle = "Sample Episode Title",
             pubDate = "Jan 1, 2023",
-            episodeName = "Episode Name",
-            description = "This is a sample description of the podcast episode.",
+            episodeTitle = "Episode Name",
+            episodeDescription = "This is a sample description of the podcast episode.",
             enclosureUrl = "https://example.com/episode.mp3",
             timeLeft = "30:00",
             progress = 0.5f,
             feedUrl = "feedUrl",
-            guid = 123456789L,
-            played = false,
-            enqueued = false
+            guid = "123456789L",
+            finished = false,
         ),
         playMedia = {},
         navigateToEpisode = {},

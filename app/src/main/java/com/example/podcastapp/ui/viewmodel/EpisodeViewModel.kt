@@ -1,14 +1,14 @@
 package com.example.podcastapp.ui.viewmodel
 
 import android.util.Log
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.podcastapp.PodcastApplication
 import com.example.podcastapp.data.local.DatabaseRepository
 import com.example.podcastapp.data.remote.RemoteRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 
@@ -25,12 +25,10 @@ data class EpisodeUiState(
 
 // TODO: update to use rss feeds
 class EpisodeViewModel(
-    savedStateHandle: SavedStateHandle,
-    private val databaseRepository: DatabaseRepository,
-    private val remoteRepository: RemoteRepository
+    private val guid: String,
+    private val remoteRepository: RemoteRepository,
+    private val databaseRepository: DatabaseRepository
 ) : ViewModel() {
-
-    private val episodeId: Long = checkNotNull(savedStateHandle["episodeId"])
 
     private val _uiState: MutableStateFlow<EpisodeUiState> = MutableStateFlow(EpisodeUiState(
         title = "",
@@ -42,23 +40,35 @@ class EpisodeViewModel(
     val uiState = _uiState.asStateFlow()
 
     init {
-        Log.d(tag, episodeId.toString())
+        Log.d(tag, guid.toString())
         viewModelScope.launch {
             try {
-                val response = remoteRepository.episodeByID(episodeId)
-                _uiState.update {
-                    it.copy(
-                        image = response.episode.image,
-                        title = response.episode.title,
-                        description = response.episode.description,
-                        datePublishedPretty = response.episode.datePublishedPretty,
-                        duration = response.episode.duration
-                    )
-                }
-                // TODO:
+//                val response = remoteRepository.episodeByID(episodeId)
+//                _uiState.update {
+//                    it.copy(
+//                        image = response.episode.image,
+//                        title = response.episode.title,
+//                        description = response.episode.description,
+//                        datePublishedPretty = response.episode.datePublishedPretty,
+//                        duration = response.episode.duration
+//                    )
+//                }
+//                // TODO:
             } catch (e: HttpException) { // TODO: handle exceptions
                 throw e
             }
+        }
+    }
+
+    class Factory(
+        private val guid: String,
+        private val application: PodcastApplication
+    ) : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            val remoteRepository = application.container.remoteRepository
+            val databaseRepository = application.container.databaseRepository
+            return EpisodeViewModel(guid, remoteRepository, databaseRepository) as T
         }
     }
 }

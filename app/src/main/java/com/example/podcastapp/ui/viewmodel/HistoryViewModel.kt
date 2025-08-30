@@ -1,11 +1,12 @@
 package com.example.podcastapp.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.podcastapp.PodcastApplication
 import com.example.podcastapp.data.local.DatabaseRepository
 import com.example.podcastapp.ui.components.PodcastEpItem
 import com.example.podcastapp.utils.Resource
-import com.example.podcastapp.utils.toPodcastEpItem
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
@@ -41,23 +42,33 @@ class HistoryViewModel(
                     _uiState.update { state ->
                         state.copy(
                             historyFetchState = Resource.Success(
-                                HistoryFetchState(history = list.map { it.toPodcastEpItem() })
+                                HistoryFetchState(history = list)
                             )
                         )
                     }
                 }
         }
     }
+//
+//    fun enqueue(item: PodcastEpItem) {
+//        viewModelScope.launch {
+//            databaseRepository.enqueue(item)
+//        }
+//    }
+//
+//    fun removeFromQueue(item: PodcastEpItem) {
+//        viewModelScope.launch {
+//            databaseRepository.remove("${item.feedUrl}#${item.guid}")
+//        }
+//    }
 
-    fun enqueue(item: PodcastEpItem) {
-        viewModelScope.launch {
-            databaseRepository.enqueue(item)
-        }
-    }
-
-    fun removeFromQueue(item: PodcastEpItem) {
-        viewModelScope.launch {
-            databaseRepository.remove("${item.feedUrl}#${item.guid}")
+    class Factory(
+        private val application: PodcastApplication
+    ) : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            val databaseRepository = application.container.databaseRepository
+            return HistoryViewModel(databaseRepository) as T
         }
     }
 }

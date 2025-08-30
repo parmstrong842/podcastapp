@@ -1,4 +1,4 @@
-package com.example.podcastapp.data.local.newentities
+package com.example.podcastapp.data.local.entity
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
@@ -23,10 +23,10 @@ import androidx.room.PrimaryKey
 data class EpisodeEntity(
     @PrimaryKey(autoGenerate = true) val episodeId: Long = 0L,
     val feedUrl: String,
-    val guid: Long,
-    val episodeName: String,
-    val description: String,
+    val guid: String,
+    val episodeTitle: String,
+    val episodeImage: String,
+    val episodeDescription: String,
     val enclosureUrl: String,
-    val image: String,
     val pubDate: String
 )

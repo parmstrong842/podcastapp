@@ -37,18 +37,19 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.podcastapp.ui.viewmodel.AppViewModelProvider
+import com.example.podcastapp.PodcastApplication
 import com.example.podcastapp.R
+import com.example.podcastapp.ui.components.PodcastEpItem
 import com.example.podcastapp.ui.components.PodcastEpisodeCard
 import com.example.podcastapp.ui.theme.Dimens.SIDE_PADDING
 import com.example.podcastapp.ui.viewmodel.ExploreViewModel
-import com.example.podcastapp.ui.components.PodcastEpItem
 import com.example.podcastapp.ui.viewmodel.PodcastSquare
 import kotlinx.coroutines.launch
 
@@ -58,8 +59,8 @@ import kotlinx.coroutines.launch
 fun ExploreScreen(
     navigateToSearch: () -> Unit,
     playMedia: (PodcastEpItem) -> Unit,
-    navigateToEpisode: (Long) -> Unit,
-    viewModel: ExploreViewModel = viewModel(factory = AppViewModelProvider.Factory)
+    navigateToEpisode: (String) -> Unit,
+    viewModel: ExploreViewModel = viewModel(factory = ExploreViewModel.Factory(LocalContext.current.applicationContext as PodcastApplication))
 ) {
     val uiState by viewModel.uiState.collectAsState()
     Column {
@@ -214,18 +215,18 @@ private fun PodcastSquarePreview() {
 @Composable
 private fun PodcastItemPreview() {
     val item = PodcastEpItem(
-        image = "",
-        podcastTitle = "TED Talks Daily",
-        pubDate = "Yesterday",
-        episodeName = "The science of friction -- and its surprising impact on our lives | Jennifer Person",
-        description = "Join the Acquired Limited Partner program! http://siteahsiethaisetha (works best on mobile)",
-        timeLeft = "1hr 2min",
-        enclosureUrl = "",
+        podcastTitle = "The Joe Rogan Experience",
+        podcastImage = "https://megaphone.imgix.net/podcasts/6b48647a-f635-11ef-8324-2b180a017350/image/d142ec926f025bd64b32d9a2e96aa81a.jpg?ixlib=rails-4.3.1&max-w=3000&max-h=3000&fit=crop&auto=format,compress",
+        pubDate = "date",
+        episodeTitle = "Kalimba",
+        episodeImage = "https://megaphone.imgix.net/podcasts/6b48647a-f635-11ef-8324-2b180a017350/image/d142ec926f025bd64b32d9a2e96aa81a.jpg?ixlib=rails-4.3.1&max-w=3000&max-h=3000&fit=crop&auto=format,compress",
+        episodeDescription = "description",
+        enclosureUrl = "https://www.learningcontainer.com/wp-content/uploads/2020/02/Kalimba.mp3",
+        timeLeft = "30:00",
+        progress = 0.5f,
         feedUrl = "feedUrl",
-        guid = 1,
-        played = false,
-        progress = 0f,
-        enqueued = false
+        guid = "1",
+        finished = false
     )
     PodcastEpisodeCard(item, {}, {}) {}
 }

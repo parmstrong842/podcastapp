@@ -5,9 +5,11 @@ import com.example.podcastapp.data.remote.models.podcastindex.EpisodeFeedRespons
 import com.example.podcastapp.data.remote.models.podcastindex.EpisodeResponse
 import com.example.podcastapp.data.remote.models.podcastindex.PodcastByFeedIDResponse
 import com.example.podcastapp.data.remote.models.podcastindex.SearchResponse
+import okhttp3.ResponseBody
 
-class PodcastIndexRepository(
-    private val podcastIndexApi: PodcastIndexApi
+class RemoteRepositoryImpl(
+    private val podcastIndexApi: PodcastIndexApi,
+    private val rssService: RssService
 ) : RemoteRepository {
 
     override suspend fun searchPodcastsByTerm(
@@ -46,5 +48,9 @@ class PodcastIndexRepository(
             authorization = headers["Authorization"]!!,
             id = id
         )
+    }
+
+    override suspend fun getRssFeedContent(feedUrl: String): ResponseBody {
+        return rssService.getFeed(feedUrl)
     }
 }

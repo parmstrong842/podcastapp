@@ -1,4 +1,4 @@
-package com.example.podcastapp.data.local.newentities
+package com.example.podcastapp.data.local.entity
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
@@ -24,10 +24,9 @@ import androidx.room.PrimaryKey
 data class EpisodeStateEntity(
     @PrimaryKey val episodeId: Long,
     // progress
-    val position: Long = 0L,
     val duration: Long = 0L,
+    val position: Long = 0L,
     val finished: Boolean = false,
-    val updatedAt: Long = System.currentTimeMillis(),
     // history (present if not null)
     val lastPlayedAt: Long? = null,
     // queue (present if not null)

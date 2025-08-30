@@ -1,10 +1,9 @@
 package com.example.podcastapp
 
-import android.net.Uri
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.exponentialDecay
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.AnchoredDraggableState
 import androidx.compose.foundation.gestures.DraggableAnchors
 import androidx.compose.foundation.gestures.animateTo
@@ -23,32 +22,39 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.navigation.NavType
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
+import androidx.navigation3.runtime.entry
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberSavedStateNavEntryDecorator
+import androidx.navigation3.ui.NavDisplay
+import androidx.navigation3.ui.rememberSceneSetupNavEntryDecorator
 import com.example.podcastapp.audiocontroller.IAudioControllerManager
+import com.example.podcastapp.ui.components.PodcastEpItem
 import com.example.podcastapp.ui.screens.EpisodeScreen
 import com.example.podcastapp.ui.screens.ExploreScreen
 import com.example.podcastapp.ui.screens.HomeScreen
-import com.example.podcastapp.ui.screens.PlayerState
-import com.example.podcastapp.ui.screens.PodcastPlayer
+import com.example.podcastapp.ui.components.PlayerState
+import com.example.podcastapp.ui.components.PodcastPlayer
 import com.example.podcastapp.ui.screens.PodcastScreen
 import com.example.podcastapp.ui.screens.SearchScreen
 import com.example.podcastapp.ui.screens.UserScreen
 import com.example.podcastapp.ui.theme.Dimens
-import com.example.podcastapp.ui.components.PodcastEpItem
+import com.example.podcastapp.ui.viewmodel.EpisodeViewModel
+import com.example.podcastapp.ui.viewmodel.PodcastViewModel
 import kotlinx.coroutines.launch
 
 
@@ -59,8 +65,8 @@ sealed class NavigationScreen(val name: String, val icon: ImageVector?) {
     data object Explore : NavigationScreen("Explore", Icons.Default.Search)
     data object User : NavigationScreen("User", Icons.AutoMirrored.Filled.List)
     data object Search : NavigationScreen("Search", null)
-    data object Podcast : NavigationScreen("Podcast", null)
-    data object Episode : NavigationScreen("Episode", null)
+    data class Podcast(val feedUrl: String) : NavigationScreen("Podcast", null)
+    data class Episode(val guid: String) : NavigationScreen("Episode", null)
 }
 
 val BottomNavigation = listOf(
@@ -69,10 +75,10 @@ val BottomNavigation = listOf(
     NavigationScreen.User,
 )
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PodcastNavGraph(audioControllerManager: IAudioControllerManager) {
-    val navController = rememberNavController()
+
+    val topLevelBackStack = remember { TopLevelBackStack<Any>(NavigationScreen.Home, BottomNavigation) }
 
     val scope = rememberCoroutineScope()
     val playerState = rememberAnchoredDraggableState()
@@ -80,29 +86,15 @@ fun PodcastNavGraph(audioControllerManager: IAudioControllerManager) {
     Scaffold(
         bottomBar = {
             NavigationBar{
-                val navBackStackEntry by navController.currentBackStackEntryAsState()
-                val currentDestination = navBackStackEntry?.destination
-                BottomNavigation.forEach {
+                BottomNavigation.forEach { topLevelRoute ->
                     NavigationBarItem(
-                        icon = { Icon(it.icon!!, contentDescription = it.name) },
-                        label = { Text(it.name) },
-                        selected = currentDestination?.route == it.name,
+                        icon = { Icon(topLevelRoute.icon!!, contentDescription = topLevelRoute.name) },
+                        label = { Text(topLevelRoute.name) },
+                        selected = topLevelRoute == topLevelBackStack.topLevelKey,
                         onClick = {
-                            navController.navigate(it.name) {
-                                scope.launch {
-                                    playerState.animateTo(PlayerState.Collapsed)
-                                }
-                                // Pop up to the start destination of the graph to
-                                // avoid building up a large stack of destinations
-                                // on the back stack as users select items
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
-                                }
-                                // Avoid multiple copies of the same destination when
-                                // reselecting the same item
-                                launchSingleTop = true
-                                // Restore state when reselecting a previously selected item
-                                restoreState = true
+                            topLevelBackStack.add(topLevelRoute)
+                            scope.launch {
+                                playerState.animateTo(PlayerState.Collapsed)
                             }
                         }
                     )
@@ -114,72 +106,71 @@ fun PodcastNavGraph(audioControllerManager: IAudioControllerManager) {
             .fillMaxSize()
             .padding(innerPadding)
         ) {
-            NavHost(navController, startDestination = NavigationScreen.Home.name) {
-                composable(
-                    route = NavigationScreen.Home.name
-                ) {
-                    HomeScreen(
-                        navigateToPodcast = { navController.navigate("${NavigationScreen.Podcast.name}/${Uri.encode(it)}") },
-                    )
+            NavDisplay(
+                backStack = topLevelBackStack.backStack,
+                onBack = { topLevelBackStack.removeLast() },
+                entryDecorators = listOf(
+                    rememberSceneSetupNavEntryDecorator(),
+                    rememberSavedStateNavEntryDecorator(),
+                    rememberViewModelStoreNavEntryDecorator()
+                ),
+                entryProvider = entryProvider {
+                    entry<NavigationScreen.Home> {
+                        HomeScreen(
+                            navigateToPodcast = { topLevelBackStack.add(NavigationScreen.Podcast(it)) },
+                        )
+                    }
+                    entry<NavigationScreen.Explore> {
+                        ExploreScreen(
+                            navigateToSearch = { topLevelBackStack.add(NavigationScreen.Search) },
+                            playMedia = { audioControllerManager.playMedia(it) },
+                            navigateToEpisode = { topLevelBackStack.add(NavigationScreen.Episode(it)) }
+                        )
+                    }
+                    entry<NavigationScreen.User> {
+                        UserScreen(
+                            playMedia = { audioControllerManager.playMedia(it) },
+                            navigateToPodcast = { topLevelBackStack.add(NavigationScreen.Podcast(it)) },
+                            navigateToEpisode = { topLevelBackStack.add(NavigationScreen.Episode(it)) }
+                        )
+                    }
+                    entry<NavigationScreen.Podcast> {
+                        PodcastScreen(
+                            viewModel = viewModel(factory = PodcastViewModel.Factory(it.feedUrl, LocalContext.current.applicationContext as PodcastApplication)),
+                            navigateBack = { topLevelBackStack.removeLast() },
+                            playMedia = { podcastEpItem ->  audioControllerManager.playMedia(podcastEpItem) },
+                            navigateToEpisode = { episodeID -> topLevelBackStack.add(NavigationScreen.Episode(episodeID)) }
+                        )
+                    }
+                    entry<NavigationScreen.Episode> {
+                        EpisodeScreen(
+                            viewModel = viewModel(factory = EpisodeViewModel.Factory(it.guid, LocalContext.current.applicationContext as PodcastApplication)),
+                            navigateBack = { topLevelBackStack.removeLast() },
+                            audioControllerManager = audioControllerManager
+                        )
+                    }
+                    entry<NavigationScreen.Search> {
+                        SearchScreen(
+                            navigateBack = { topLevelBackStack.removeLast() },
+                            navigateToPodcast = { topLevelBackStack.add(NavigationScreen.Podcast(it)) }
+                        )
+                    }
                 }
-                composable(NavigationScreen.Explore.name) {
-                    ExploreScreen(
-                        navigateToSearch = { navController.navigate(NavigationScreen.Search.name) },
-                        playMedia = { audioControllerManager.playMedia(it) },
-                        navigateToEpisode = { navController.navigate("${NavigationScreen.Episode.name}/$it") }
-                    )
-                }
-                composable(NavigationScreen.User.name) {
-                    UserScreen(
-                        playMedia = { audioControllerManager.playMedia(it) },
-                        navigateToPodcast = { navController.navigate("${NavigationScreen.Podcast.name}/${Uri.encode(it)}") },
-                        navigateToEpisode = { navController.navigate("${NavigationScreen.Episode.name}/$it") }
-                    )
-                }
-                composable(
-                    route = "${NavigationScreen.Podcast.name}/{feedUrl}",
-                    arguments = listOf(navArgument("feedUrl") {
-                        type = NavType.StringType
-                    })
-                ) {
-                    PodcastScreen(
-                        navigateBack = { navController.popBackStack() },
-                        playMedia = { audioControllerManager.playMedia(it) },
-                        navigateToEpisode = { navController.navigate("${NavigationScreen.Episode.name}/$it") }
-                    )
-                }
-                composable(
-                    route = "${NavigationScreen.Episode.name}/{episodeId}",
-                    arguments = listOf(navArgument("episodeId") {
-                        type = NavType.LongType
-                    })
-                ) {
-                    EpisodeScreen(
-                        navigateBack = { navController.popBackStack() },
-                        audioControllerManager
-                    )
-                }
-                composable(NavigationScreen.Search.name) {
-                    SearchScreen(
-                        navigateBack = { navController.popBackStack() },
-                        navigateToPodcast = { navController.navigate("${NavigationScreen.Podcast.name}/${Uri.encode(it)}") }
-                    )
-                }
-            }
+            )
             Button(onClick = { audioControllerManager.playMedia(
                 PodcastEpItem(
-                    "https://megaphone.imgix.net/podcasts/6b48647a-f635-11ef-8324-2b180a017350/image/d142ec926f025bd64b32d9a2e96aa81a.jpg?ixlib=rails-4.3.1&max-w=3000&max-h=3000&fit=crop&auto=format,compress",
-                    "The Joe Rogan Experience",
-                    "date",
-                    "Kalimba",
-                    "#2282 - Bill Murray",
-                        "https://www.learningcontainer.com/wp-content/uploads/2020/02/Kalimba.mp3",
-                    "https://www.learningcontainer.com/wp-content/uploads/2020/02/Kalimba.mp3",
-                    0.5f,
-                    "feedUrl",
-                    1,
-                    false,
-                    false
+                    podcastTitle = "The Joe Rogan Experience",
+                    podcastImage = "https://megaphone.imgix.net/podcasts/6b48647a-f635-11ef-8324-2b180a017350/image/d142ec926f025bd64b32d9a2e96aa81a.jpg?ixlib=rails-4.3.1&max-w=3000&max-h=3000&fit=crop&auto=format,compress",
+                    pubDate = "date",
+                    episodeTitle = "Kalimba",
+                    episodeImage = "https://megaphone.imgix.net/podcasts/6b48647a-f635-11ef-8324-2b180a017350/image/d142ec926f025bd64b32d9a2e96aa81a.jpg?ixlib=rails-4.3.1&max-w=3000&max-h=3000&fit=crop&auto=format,compress",
+                    episodeDescription = "description",
+                    enclosureUrl = "https://www.learningcontainer.com/wp-content/uploads/2020/02/Kalimba.mp3",
+                    timeLeft = "30:00",
+                    progress = 0.5f,
+                    feedUrl = "feedUrl",
+                    guid = "1",
+                    finished = false
                 ),
             ) },
             ) {
@@ -192,7 +183,7 @@ fun PodcastNavGraph(audioControllerManager: IAudioControllerManager) {
                 PodcastPlayer(
                     state = playerState,
                     audioControllerManager = audioControllerManager,
-                    navigateToPodcast = { navController.navigate("${NavigationScreen.Podcast.name}/${Uri.encode(it)}") }
+                    navigateToPodcast = { topLevelBackStack.add(NavigationScreen.Podcast(it)) }
                 )
             }
         }
@@ -200,7 +191,6 @@ fun PodcastNavGraph(audioControllerManager: IAudioControllerManager) {
 }
 
 @Composable
-@OptIn(ExperimentalFoundationApi::class)
 private fun rememberAnchoredDraggableState(): AnchoredDraggableState<PlayerState> {
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
@@ -222,5 +212,32 @@ private fun rememberAnchoredDraggableState(): AnchoredDraggableState<PlayerState
             snapAnimationSpec = tween(),
             decayAnimationSpec = exponentialDecay()
         )
+    }
+}
+
+class TopLevelBackStack<T: Any>(startKey: T, private val topLevelKeys: List<Any>) {
+
+    var topLevelKey by mutableStateOf(startKey)
+        private set
+
+    val backStack = mutableStateListOf(startKey)
+
+    fun add(key: T) {
+        if (topLevelKeys.contains(key)) {
+            backStack.clear()
+            topLevelKey = key
+        }
+        backStack.add(key)
+        log()
+    }
+
+    fun removeLast() {
+        backStack.removeLastOrNull()
+        log()
+    }
+
+    private fun log() {
+        val stackDump = backStack.joinToString(" -> ")
+        Log.d(tag, "backstack: $stackDump")
     }
 }

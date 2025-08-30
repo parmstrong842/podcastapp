@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlayCircleOutline
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -25,7 +24,7 @@ fun PlayTimerButton(
     modifier: Modifier = Modifier,
     timeLeft: String,
     progress: Float,
-    played: Boolean,
+    finished: Boolean,
     onClick: () -> Unit
 ) {
     OutlinedButton(
@@ -36,7 +35,7 @@ fun PlayTimerButton(
             verticalAlignment = Alignment.CenterVertically
         ) {
             when {
-                played -> Text(stringResource(R.string.completed), color = Color.LightGray)
+                finished -> Text(stringResource(R.string.completed), color = Color.LightGray)
                 progress > 0f -> {
                     CircularProgressIndicator(
                         progress = { progress.coerceIn(0f, 1f) },
@@ -62,7 +61,7 @@ private fun PlayTimerButton_Preview() {
     PlayTimerButton(
         timeLeft = "00:30:00",
         progress = 0.5f,
-        played = false,
+        finished = false,
         onClick = {}
     )
 }
@@ -73,7 +72,7 @@ private fun PlayTimerButton_Unplayed_Preview() {
     PlayTimerButton(
         timeLeft = "00:30:00",
         progress = 0.0f,
-        played = false,
+        finished = false,
         onClick = {}
     )
 }

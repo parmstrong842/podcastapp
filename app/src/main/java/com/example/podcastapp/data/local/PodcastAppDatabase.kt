@@ -4,12 +4,11 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import com.example.podcastapp.data.local.entities.EpisodeHistoryEntity
-import com.example.podcastapp.data.local.entities.PodcastProgressEntity
-import com.example.podcastapp.data.local.entities.QueueEntity
-import com.example.podcastapp.data.local.entities.SubscribedPodcastEntity
+import com.example.podcastapp.data.local.entity.EpisodeEntity
+import com.example.podcastapp.data.local.entity.EpisodeStateEntity
+import com.example.podcastapp.data.local.entity.PodcastEntity
 
-@Database(entities = [SubscribedPodcastEntity::class, PodcastProgressEntity::class, EpisodeHistoryEntity::class, QueueEntity::class], version = 13, exportSchema = false)
+@Database(entities = [PodcastEntity::class, EpisodeEntity::class, EpisodeStateEntity::class], version = 1, exportSchema = false)
 abstract class PodcastAppDatabase : RoomDatabase() {
 
     abstract fun databaseDao(): DatabaseDao

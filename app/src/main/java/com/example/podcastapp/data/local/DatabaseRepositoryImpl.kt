@@ -1,102 +1,54 @@
 package com.example.podcastapp.data.local
 
-import androidx.room.withTransaction
-import com.example.podcastapp.data.local.entities.EpisodeHistoryEntity
-import com.example.podcastapp.data.local.entities.PodcastProgressEntity
-import com.example.podcastapp.data.local.entities.QueueEntity
-import com.example.podcastapp.data.local.entities.SubscribedPodcastEntity
+import androidx.room.Transaction
+import com.example.podcastapp.data.local.entity.EpisodeEntity
+import com.example.podcastapp.data.local.entity.EpisodeStateEntity
+import com.example.podcastapp.data.local.entity.PodcastEntity
+import com.example.podcastapp.data.local.mapper.toPodcastEpItem
+import com.example.podcastapp.data.local.model.EpisodeProgress
+import com.example.podcastapp.data.local.model.EpisodeWithState
 import com.example.podcastapp.ui.components.PodcastEpItem
-import com.example.podcastapp.utils.toQueueEntity
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 class DatabaseRepositoryImpl(
     private val dao: DatabaseDao,
     private val db: PodcastAppDatabase
 ) : DatabaseRepository {
 
-    override fun getAllSubscriptionsFlow(): Flow<List<SubscribedPodcastEntity>> {
+    override suspend fun subscribe(feedUrl: String, podcastTitle: String, image: String?) {
+        dao.upsertPodcast(PodcastEntity(feedUrl = feedUrl, podcastTitle = podcastTitle, podcastImage = image, subscribed = true))
+    }
+
+    override suspend fun unsubscribe(feedUrl: String) {
+        dao.unsubscribe(feedUrl)
+    }
+
+    override fun getAllSubscriptionsFlow(): Flow<List<PodcastEntity>> {
         return dao.getAllSubscriptionsFlow()
     }
 
-    override suspend fun getSubscription(feedUrl: String): SubscribedPodcastEntity? {
-        return dao.getSubscription(feedUrl)
+    override suspend fun isSubscribed(feedUrl: String): Boolean? {
+        return dao.isSubscribed(feedUrl)
     }
 
-    override suspend fun insertSubscription(item: SubscribedPodcastEntity) {
-        dao.insertSubscription(item)
+    override suspend fun saveProgress(feedUrl: String, guid: String, position: Long, duration: Long, finished: Boolean) {
+        dao.saveProgress(feedUrl, guid, position, duration, finished)
     }
 
-    override suspend fun updateSubscription(item: SubscribedPodcastEntity) {
-        dao.updateSubscription(item)
-    }
-
-    override suspend fun deleteSubscription(item: SubscribedPodcastEntity) {
-        dao.deleteSubscription(item)
-    }
-
-
-
-    override suspend fun saveProgress(progress: PodcastProgressEntity) {
-        dao.saveProgress(progress)
-    }
-
-    override suspend fun getProgress(feedUrl: String, guid: Long): PodcastProgressEntity? {
+    override suspend fun getProgress(feedUrl: String, guid: String): EpisodeProgress? {
         return dao.getProgress(feedUrl, guid)
     }
 
-    override suspend fun getAllProgressForPodcast(feedUrl: String): List<PodcastProgressEntity> {
-            return dao.getAllProgressForPodcast(feedUrl)
+
+    override suspend fun insertEpisodeHistory(pod: PodcastEpItem) {
+        dao.insertEpisodeHistory(pod)
     }
 
-    override suspend fun getRecentProgress(): List<PodcastProgressEntity> {
-        return dao.getRecentProgress()
-    }
-
-
-
-    override fun getHistoryFlow(): Flow<List<EpisodeHistoryEntity>> {
-        return dao.getHistoryFlow()
-    }
-
-    override suspend fun insertEpisodeHistory(history: EpisodeHistoryEntity) {
-        dao.insertEpisodeHistory(history)
-    }
-
-
-
-    override fun getQueueFlow(): Flow<List<QueueEntity>> {
-        return dao.getQueueFlow()
-    }
-
-    override suspend fun enqueue(podcastEpItem: PodcastEpItem) {
-        val next = dao.maxPosition() + 1
-        dao.insert(
-            podcastEpItem.toQueueEntity(next)
-        )
-    }
-
-    override suspend fun remove(key: String) = db.withTransaction {
-        val pos = dao.positionOf(key) ?: return@withTransaction
-        dao.deleteByKey(key)
-        dao.collapseFrom(pos)
-    }
-
-    override suspend fun move(key: String, newIndex: Int) = db.withTransaction {
-        val list = dao.getQueueOnce()
-        val oldIndex = list.indexOfFirst { it.key == key }
-        if (oldIndex == -1 || newIndex == oldIndex) return@withTransaction
-
-        if (oldIndex < newIndex) {
-            // moving down: items (fromIndex+1..newIndex) shift up (-1)
-            val start = list[oldIndex + 1].queuePosition
-            val end = list[newIndex].queuePosition
-            dao.decRange(start, end)
-        } else {
-            // moving up: items (newIndex..fromIndex-1) shift down (+1)
-            val start = list[newIndex].queuePosition
-            val end = list[oldIndex - 1].queuePosition
-            dao.incRange(start, end)
+    override fun getHistoryFlow(): Flow<List<PodcastEpItem>> {
+        return dao.getHistoryFlow().map { list ->
+            list.map { it.toPodcastEpItem() }
         }
-        dao.setPosition(key, newIndex)
     }
+
 }

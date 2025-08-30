@@ -1,35 +1,41 @@
 package com.example.podcastapp.ui.viewmodel
 
-import android.net.Uri
 import android.util.Log
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.podcastapp.PodcastApplication
 import com.example.podcastapp.data.local.DatabaseRepository
-import com.example.podcastapp.data.local.entities.SubscribedPodcastEntity
-import com.example.podcastapp.data.local.entities.progressFraction
-import com.example.podcastapp.data.local.entities.timeLeftMs
 import com.example.podcastapp.data.remote.RemoteRepository
 import com.example.podcastapp.ui.components.PodcastEpItem
 import com.example.podcastapp.utils.Resource
-import com.example.podcastapp.utils.formatTime
+import com.prof18.rssparser.RssParserBuilder
+import com.prof18.rssparser.model.RssChannel
+import com.prof18.rssparser.model.RssItem
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
+import org.xmlpull.v1.XmlPullParser
+import org.xmlpull.v1.XmlPullParserFactory
+import java.io.InputStream
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
-import java.util.Date
 import java.util.Locale
 
 
 private const val tag = "PodcastViewModel"
 
+data class PodcastFeed(
+    val podcastTitle: String,
+    val podcastImage: String,
+    val episodes: List<PodcastEpItem>
+)
+
 data class PodcastFetchState(
-    val title: String,
-    val image: String,
+    val podcastTitle: String,
+    val podcastImage: String,
     val episodes: List<PodcastEpItem>,
     val subscribed: Boolean
 )
@@ -40,13 +46,10 @@ data class PodcastUiState(
 )
 
 class PodcastViewModel(
-    savedStateHandle: SavedStateHandle,
-    private val databaseRepository: DatabaseRepository,
-    private val remoteRepository: RemoteRepository
+    private val feedUrl: String,
+    private val remoteRepository: RemoteRepository,
+    private val databaseRepository: DatabaseRepository
 ) : ViewModel() {
-
-    private val encodedUrl: String = checkNotNull(savedStateHandle["feedUrl"])
-    private val feedUrl = Uri.decode(encodedUrl)
 
     private val _uiState: MutableStateFlow<PodcastUiState> = MutableStateFlow(PodcastUiState(
         sortByTabSelection = "Latest",
@@ -57,20 +60,14 @@ class PodcastViewModel(
     init {
         viewModelScope.launch {
             val podcastFetchResult = try {
-                val item = PodcastEpItem(
-                    "https://megaphone.imgix.net/podcasts/6b48647a-f635-11ef-8324-2b180a017350/image/d142ec926f025bd64b32d9a2e96aa81a.jpg?ixlib=rails-4.3.1&max-w=3000&max-h=3000&fit=crop&auto=format,compress",
-                    "The Joe Rogan Experience",
-                    "date",
-                    "Kalimba",
-                    "#2282 - Bill Murray",
-                    "https://www.learningcontainer.com/wp-content/uploads/2020/02/Kalimba.mp3",
-                    "1(00:00:00)",
-                    0.5f,
-                    "feedUrl",
-                    1,
-                    false,
-                    false
-                )
+                val parser = RssParserBuilder().build()
+                val channel: RssChannel = parser.getRssChannel(feedUrl)
+
+                val podcastTitle = channel.title.orEmpty()
+                val podcastImage = channel.itunesChannelData?.image
+                        ?: channel.image?.url.orEmpty()
+
+                val episodes = channel.items.map { it.toPodcastEpItem(podcastTitle, podcastImage, feedUrl) }
 //                val podcastResponse = remoteRepository.podcastByFeedID(podcastId)
 //                val response = remoteRepository.episodesByFeedID(podcastId)
 //                val allProgress = databaseRepository.getAllProgressForPodcast(podcastId)
@@ -94,10 +91,10 @@ class PodcastViewModel(
 //                }
                 Resource.Success(
                     PodcastFetchState(
-                        title = "The Joe Rogan Experience",
-                        image = "https://megaphone.imgix.net/podcasts/6b48647a-f635-11ef-8324-2b180a017350/image/d142ec926f025bd64b32d9a2e96aa81a.jpg?ixlib=rails-4.3.1&max-w=3000&max-h=3000&fit=crop&auto=format,compress",
-                        subscribed = databaseRepository.getSubscription(feedUrl) != null,
-                        episodes = listOf(item)
+                        podcastTitle = podcastTitle,
+                        podcastImage = podcastImage,
+                        subscribed = databaseRepository.isSubscribed(feedUrl) != null,
+                        episodes = episodes
 
                     )
                 )
@@ -112,18 +109,52 @@ class PodcastViewModel(
         }
     }
 
+    private fun RssItem.toPodcastEpItem(
+        podcastTitle: String,
+        podcastImage: String,
+        feedUrl: String
+    ): PodcastEpItem {
+        val epImage =
+            this.itunesItemData?.image
+                ?: this.image
+                ?: podcastImage
+
+        val description = when {
+            !this.content.isNullOrBlank() -> this.content!!
+            !this.itunesItemData?.summary.isNullOrBlank() -> this.itunesItemData!!.summary!!
+            else -> this.description.orEmpty()
+        }
+
+        val audioUrl = this.audio ?: "" // TODO: handle case where there is no audio
+
+        val duration = this.itunesItemData?.duration.orEmpty()
+
+        return PodcastEpItem(
+            podcastTitle = podcastTitle,
+            podcastImage = podcastImage,
+            pubDate = this.pubDate.orEmpty(),
+            episodeTitle = this.title.orEmpty(),
+            episodeImage = epImage,
+            episodeDescription = description,
+            enclosureUrl = audioUrl,
+            timeLeft = normalizeDurationToHHMMSS(duration), // same helper you already have
+            progress = 0f,                 // fill from DB later
+            feedUrl = feedUrl,
+            guid = this.guid.orEmpty(),
+            finished = false               // fill from DB later
+        )
+    }
+
     fun subscribeToPodcast() {
         viewModelScope.launch {
             val current = _uiState.value.podcastFetchState
             if (current is Resource.Success) {
                 val data = current.data
                 runCatching {
-                    databaseRepository.insertSubscription(
-                        SubscribedPodcastEntity(
-                            title = data.title,
-                            image = data.image,
-                            feedUrl = feedUrl
-                        )
+                    databaseRepository.subscribe(
+                        feedUrl = feedUrl,
+                        podcastTitle = data.podcastTitle,
+                        image = data.podcastImage.takeIf { it.isNotEmpty() }
                     )
                 }.onSuccess {
                     val updated = data.copy(subscribed = true)
@@ -141,12 +172,8 @@ class PodcastViewModel(
             if (current is Resource.Success) {
                 val data = current.data
                 runCatching {
-                    databaseRepository.deleteSubscription(
-                        SubscribedPodcastEntity(
-                            title = data.title,
-                            image = data.image,
-                            feedUrl = feedUrl
-                        )
+                    databaseRepository.unsubscribe(
+                        feedUrl = feedUrl
                     )
                 }.onSuccess {
                     val updated = data.copy(subscribed = false)
@@ -158,17 +185,17 @@ class PodcastViewModel(
         }
     }
 
-    fun enqueue(item: PodcastEpItem) {
-        viewModelScope.launch {
-            databaseRepository.enqueue(item)
-        }
-    }
-
-    fun removeFromQueue(item: PodcastEpItem) {
-        viewModelScope.launch {
-            databaseRepository.remove("${item.feedUrl}#${item.guid}")
-        }
-    }
+//    fun enqueue(item: PodcastEpItem) {
+//        viewModelScope.launch {
+//            databaseRepository.enqueue(item)
+//        }
+//    }
+//
+//    fun removeFromQueue(item: PodcastEpItem) {
+//        viewModelScope.launch {
+//            databaseRepository.remove("${item.feedUrl}#${item.guid}")
+//        }
+//    }
 
     // TODO: need to be able to parse different date formats
     fun updateSortByTabSelection(newSelection: String) {
@@ -213,5 +240,17 @@ class PodcastViewModel(
 
         Log.d(tag, "All date formats failed. Returning default value.")
         return 0L
+    }
+
+    class Factory(
+        private val feedUrl: String,
+        private val application: PodcastApplication
+    ) : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            val remoteRepository = application.container.remoteRepository
+            val databaseRepository = application.container.databaseRepository
+            return PodcastViewModel(feedUrl, remoteRepository, databaseRepository) as T
+        }
     }
 }

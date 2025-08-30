@@ -6,8 +6,9 @@ import com.example.podcastapp.data.local.DatabaseRepository
 import com.example.podcastapp.data.local.DatabaseRepositoryImpl
 import com.example.podcastapp.data.local.PodcastAppDatabase
 import com.example.podcastapp.data.remote.PodcastIndexApi
-import com.example.podcastapp.data.remote.PodcastIndexRepository
+import com.example.podcastapp.data.remote.RemoteRepositoryImpl
 import com.example.podcastapp.data.remote.RemoteRepository
+import com.example.podcastapp.data.remote.RssService
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -18,31 +19,40 @@ class AppDataContainer(private val context: Context) {
 
     private val PODCAST_INDEX_URL = "https://api.podcastindex.org/api/1.0/"
 
-    private val client: OkHttpClient = OkHttpClient.Builder()
-        .addInterceptor { chain ->
-            val request = chain.request().newBuilder()
-            request.addHeader("X-Auth-Key", BuildConfig.PODCAST_API_KEY)
-            request.addHeader("User-Agent", "GoodPodcastApp/1.0")
-            chain.proceed(request.build())
-        }
-        .addInterceptor(HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.HEADERS
-        })
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .build()
-
     private val podcastIndexApi: PodcastIndexApi by lazy {
+        val podcastIndexClient: OkHttpClient = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val request = chain.request().newBuilder()
+                request.addHeader("X-Auth-Key", BuildConfig.PODCAST_API_KEY)
+                request.addHeader("User-Agent", "GoodPodcastApp/1.0")
+                chain.proceed(request.build())
+            }
+            .addInterceptor(HttpLoggingInterceptor().apply {
+                level = HttpLoggingInterceptor.Level.HEADERS
+            })
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .build()
+
         Retrofit.Builder()
             .baseUrl(PODCAST_INDEX_URL)
-            .client(client)
+            .client(podcastIndexClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(PodcastIndexApi::class.java)
     }
 
+    private val rssService: RssService by lazy {
+        Retrofit.Builder()
+            .baseUrl("https://placeholder/") // Base URL is required but will be overridden
+            .client(OkHttpClient())
+            .addConverterFactory(retrofit2.converter.scalars.ScalarsConverterFactory.create())
+            .build()
+            .create(RssService::class.java)
+    }
+
     val remoteRepository: RemoteRepository by lazy {
-        PodcastIndexRepository(podcastIndexApi)
+        RemoteRepositoryImpl(podcastIndexApi, rssService)
     }
 
     val databaseRepository: DatabaseRepository by lazy {
