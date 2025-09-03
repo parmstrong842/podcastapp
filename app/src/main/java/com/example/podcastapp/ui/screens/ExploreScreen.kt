@@ -48,6 +48,7 @@ import com.example.podcastapp.PodcastApplication
 import com.example.podcastapp.R
 import com.example.podcastapp.ui.components.PodcastEpItem
 import com.example.podcastapp.ui.components.PodcastEpisodeCard
+import com.example.podcastapp.ui.components.PodcastTopBar
 import com.example.podcastapp.ui.theme.Dimens.SIDE_PADDING
 import com.example.podcastapp.ui.viewmodel.ExploreViewModel
 import com.example.podcastapp.ui.viewmodel.PodcastSquare

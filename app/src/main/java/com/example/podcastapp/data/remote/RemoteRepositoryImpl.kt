@@ -5,11 +5,13 @@ import com.example.podcastapp.data.remote.models.podcastindex.EpisodeFeedRespons
 import com.example.podcastapp.data.remote.models.podcastindex.EpisodeResponse
 import com.example.podcastapp.data.remote.models.podcastindex.PodcastByFeedIDResponse
 import com.example.podcastapp.data.remote.models.podcastindex.SearchResponse
+import com.prof18.rssparser.RssParserBuilder
+import com.prof18.rssparser.model.RssChannel
+import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
 
 class RemoteRepositoryImpl(
     private val podcastIndexApi: PodcastIndexApi,
-    private val rssService: RssService
 ) : RemoteRepository {
 
     override suspend fun searchPodcastsByTerm(
@@ -50,7 +52,19 @@ class RemoteRepositoryImpl(
         )
     }
 
-    override suspend fun getRssFeedContent(feedUrl: String): ResponseBody {
-        return rssService.getFeed(feedUrl)
+    override suspend fun getRssChannel(feedUrl: String): RssChannel {
+        val client = OkHttpClient.Builder()
+            .addInterceptor { ch ->
+                val req = ch.request().newBuilder()
+                    .header("User-Agent", "MyPodcastApp/1.0 (+https://example.com)")
+                    .header("Accept", "application/rss+xml, application/xml;q=0.9, */*;q=0.8")
+                    .build()
+                ch.proceed(req)
+            }
+            .followRedirects(true)
+            .followSslRedirects(true)
+            .build()
+        val parser = RssParserBuilder(callFactory = client).build()
+        return parser.getRssChannel(feedUrl)
     }
 }

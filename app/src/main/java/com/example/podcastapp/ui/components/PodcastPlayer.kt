@@ -62,21 +62,21 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.media3.common.C
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
 import com.example.podcastapp.R
-import com.example.podcastapp.audiocontroller.AudioControllerManagerMock
-import com.example.podcastapp.audiocontroller.IAudioControllerManager
+import com.example.podcastapp.audiocontroller.AudioControllerMock
+import com.example.podcastapp.audiocontroller.IAudioController
+import com.example.podcastapp.data.local.mapper.formatTimeMs
 import com.example.podcastapp.ui.theme.Dimens
 import com.example.podcastapp.ui.theme.PodcastAppTheme
-import com.example.podcastapp.utils.formatTime
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -93,7 +93,7 @@ enum class PlayerState{
 fun PodcastPlayer(
     modifier: Modifier = Modifier,
     state: AnchoredDraggableState<PlayerState>,
-    audioControllerManager: IAudioControllerManager,
+    audioController: IAudioController,
     navigateToPodcast: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -163,8 +163,8 @@ fun PodcastPlayer(
         var bufferProgress by remember { mutableFloatStateOf(0f) }
         LaunchedEffect(Unit) {
             while (true) {
-                progress = audioControllerManager.getProgress()
-                bufferProgress = audioControllerManager.getBufferProgress()
+                progress = audioController.getProgress()
+                bufferProgress = audioController.getBufferProgress()
                 delay(500L)
             }
         }
@@ -174,7 +174,7 @@ fun PodcastPlayer(
                 isCollapsed = state.currentValue == PlayerState.Collapsed,
                 rowAlpha = collapsedAlpha,
                 currentProgress = progress,
-                audioControllerManager = audioControllerManager,
+                audioController = audioController,
                 expandPlayer = {
                     scope.launch {
                         state.animateTo(PlayerState.Expanded)
@@ -186,7 +186,7 @@ fun PodcastPlayer(
                 expandedAlpha = expandedAlpha,
                 currentProgress = progress,
                 currentBufferProgress = bufferProgress,
-                audioControllerManager = audioControllerManager,
+                audioController = audioController,
                 navigateToPodcast = {
                     scope.launch {
                         state.animateTo(PlayerState.Collapsed)
@@ -206,7 +206,7 @@ fun PodcastPlayer(
                 Icon(imageVector = Icons.Default.KeyboardArrowDown, contentDescription = "collapse player")
             }
             GlideImage(
-                model = audioControllerManager.currentMediaInfo?.imageUri,
+                model = audioController.currentMediaInfo?.imageUri,
                 contentDescription = "episode image",
                 modifier = Modifier
                     .padding(start = imageStartPadding, top = 4.dp)
@@ -240,11 +240,11 @@ private fun ExpandedPlayer(
     expandedAlpha: Float,
     currentProgress: Float,
     currentBufferProgress: Float,
-    audioControllerManager: IAudioControllerManager,
+    audioController: IAudioController,
     navigateToPodcast: (String) -> Unit,
 ) {
     var showBottomSheet by remember { mutableStateOf(false) }
-    val mediaInfo = audioControllerManager.currentMediaInfo
+    val mediaInfo = audioController.currentMediaInfo
 
     val sidePadding = 30.dp
     Column(
@@ -266,7 +266,7 @@ private fun ExpandedPlayer(
                 modifier = Modifier
                     .alpha(0.75f)
                     .clickable {
-                        audioControllerManager.getCurrentPodcastFeedUrl()?.let {
+                        audioController.getCurrentPodcastFeedUrl()?.let {
                             navigateToPodcast(it)
                         }
                     },
@@ -285,9 +285,9 @@ private fun ExpandedPlayer(
                 Text(text = "Download")
             }
         }
-        PlaybackProgress(currentProgress, currentBufferProgress, audioControllerManager)
+        PlaybackProgress(currentProgress, currentBufferProgress, audioController)
         PlaybackControlButtonRow(
-            audioControllerManager = audioControllerManager,
+            audioController = audioController,
             onClickSleepTimer = { showBottomSheet = true }
         )
         SleepTimerBottomSheet(
@@ -295,7 +295,7 @@ private fun ExpandedPlayer(
             hideBottomSheet = {
                 showBottomSheet = false
             },
-            audioControllerManager
+            audioController
         )
     }
 }
@@ -303,11 +303,11 @@ private fun ExpandedPlayer(
 @Composable
 private fun PlaybackControlButtonRow(
     modifier: Modifier = Modifier,
-    audioControllerManager: IAudioControllerManager,
+    audioController: IAudioController,
     onClickSleepTimer: () -> Unit
 ) {
-    val shouldShowPlayButton = audioControllerManager.shouldShowPlayButton
-    val currentSpeed by audioControllerManager.currentSpeed.collectAsState()
+    val shouldShowPlayButton = audioController.shouldShowPlayButton
+    val currentSpeed by audioController.currentSpeed.collectAsState()
     val getSpeedIcon = {
         when (currentSpeed) {
             "0.5x" -> R.drawable.speed_0_5x_24
@@ -323,14 +323,14 @@ private fun PlaybackControlButtonRow(
 
     val handleSpeedChange = {
         when (currentSpeed) {
-            "0.5x" -> audioControllerManager.sendCustomCommand("SPEED_0_5X", Bundle())
-            "0.7x" -> audioControllerManager.sendCustomCommand("SPEED_0_7X", Bundle())
-            "1x" -> audioControllerManager.sendCustomCommand("SPEED_1X", Bundle())
-            "1.2x" -> audioControllerManager.sendCustomCommand("SPEED_1_2X", Bundle())
-            "1.5x" -> audioControllerManager.sendCustomCommand("SPEED_1_5X", Bundle())
-            "1.7x" -> audioControllerManager.sendCustomCommand("SPEED_1_7X", Bundle())
-            "2x" -> audioControllerManager.sendCustomCommand("SPEED_2X", Bundle())
-            else -> audioControllerManager.sendCustomCommand("SPEED_1X", Bundle())
+            "0.5x" -> audioController.sendCustomCommand("SPEED_0_5X", Bundle())
+            "0.7x" -> audioController.sendCustomCommand("SPEED_0_7X", Bundle())
+            "1x" -> audioController.sendCustomCommand("SPEED_1X", Bundle())
+            "1.2x" -> audioController.sendCustomCommand("SPEED_1_2X", Bundle())
+            "1.5x" -> audioController.sendCustomCommand("SPEED_1_5X", Bundle())
+            "1.7x" -> audioController.sendCustomCommand("SPEED_1_7X", Bundle())
+            "2x" -> audioController.sendCustomCommand("SPEED_2X", Bundle())
+            else -> audioController.sendCustomCommand("SPEED_1X", Bundle())
         }
     }
 
@@ -345,7 +345,7 @@ private fun PlaybackControlButtonRow(
             Icon(painterResource(getSpeedIcon()), contentDescription = "change playback speed")
         }
         IconButton(
-            onClick = { audioControllerManager.sendCustomCommand("SEEK_BACK", Bundle()) },
+            onClick = { audioController.sendCustomCommand("SEEK_BACK", Bundle()) },
         ) {
             Icon(
                 painterResource(id = R.drawable.baseline_replay_10_24),
@@ -356,14 +356,14 @@ private fun PlaybackControlButtonRow(
         IconButton(
             onClick = {
                 if (shouldShowPlayButton) {
-                    audioControllerManager.resumePlayback()
+                    audioController.resumePlayback()
                 } else {
-                    audioControllerManager.pauseMedia()
+                    audioController.pauseMedia()
                 }
             },
             modifier = Modifier.size(playIconSize)
         ) {
-            if (audioControllerManager.isLoading) {
+            if (audioController.isLoading) {
                 CircularProgressIndicator(
                     modifier = Modifier.fillMaxSize(),
                     strokeWidth = 2.dp
@@ -381,7 +381,7 @@ private fun PlaybackControlButtonRow(
             }
         }
         IconButton(
-            onClick = { audioControllerManager.sendCustomCommand("SEEK_FORWARD", Bundle()) },
+            onClick = { audioController.sendCustomCommand("SEEK_FORWARD", Bundle()) },
         ) {
             Icon(
                 painterResource(id = R.drawable.baseline_forward_30_24),
@@ -392,7 +392,7 @@ private fun PlaybackControlButtonRow(
         IconButton(onClick = onClickSleepTimer) {
             Icon(
                 painterResource(
-                    id = if (audioControllerManager.sleepTimerActive) R.drawable.bedtime_filled_24dp else R.drawable.bedtime_24dp
+                    id = if (audioController.sleepTimerActive) R.drawable.bedtime_filled_24dp else R.drawable.bedtime_24dp
                 ),
                 contentDescription = "sleep timer"
             )
@@ -405,7 +405,7 @@ private fun PlaybackControlButtonRow(
 private fun SleepTimerBottomSheet(
     showBottomSheet: Boolean,
     hideBottomSheet: () -> Unit,
-    audioControllerManager: IAudioControllerManager
+    audioController: IAudioController
 ) {
     val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
@@ -425,7 +425,7 @@ private fun SleepTimerBottomSheet(
                             scope
                                 .launch {
                                     sheetState.hide()
-                                    audioControllerManager.cancelSleepTimer()
+                                    audioController.cancelSleepTimer()
                                 }
                                 .invokeOnCompletion {
                                     if (!sheetState.isVisible) {
@@ -442,7 +442,7 @@ private fun SleepTimerBottomSheet(
                     sheetState = sheetState,
                     scope = scope,
                     hideBottomSheet = hideBottomSheet,
-                    audioControllerManager
+                    audioController
                 )
                 SleepTimerOption(
                     label = "5 minutes",
@@ -450,7 +450,7 @@ private fun SleepTimerBottomSheet(
                     sheetState = sheetState,
                     scope = scope,
                     hideBottomSheet = hideBottomSheet,
-                    audioControllerManager
+                    audioController
                 )
                 SleepTimerOption(
                     label = "15 minutes",
@@ -458,7 +458,7 @@ private fun SleepTimerBottomSheet(
                     sheetState = sheetState,
                     scope = scope,
                     hideBottomSheet = hideBottomSheet,
-                    audioControllerManager
+                    audioController
                 )
                 SleepTimerOption(
                     label = "30 minutes",
@@ -466,7 +466,7 @@ private fun SleepTimerBottomSheet(
                     sheetState = sheetState,
                     scope = scope,
                     hideBottomSheet = hideBottomSheet,
-                    audioControllerManager
+                    audioController
                 )
                 SleepTimerOption(
                     label = "1 hour",
@@ -474,7 +474,7 @@ private fun SleepTimerBottomSheet(
                     sheetState = sheetState,
                     scope = scope,
                     hideBottomSheet = hideBottomSheet,
-                    audioControllerManager
+                    audioController
                 )
             }
         }
@@ -489,7 +489,7 @@ private fun SleepTimerOption(
     sheetState: SheetState,
     scope: CoroutineScope,
     hideBottomSheet: () -> Unit,
-    audioControllerManager: IAudioControllerManager,
+    audioController: IAudioController,
 ) {
     Row(
         modifier = Modifier
@@ -499,7 +499,7 @@ private fun SleepTimerOption(
                 scope
                     .launch {
                         sheetState.hide()
-                        audioControllerManager.sleepTimer(durationMillis)
+                        audioController.sleepTimer(durationMillis)
                     }
                     .invokeOnCompletion {
                         if (!sheetState.isVisible) {
@@ -520,33 +520,38 @@ private fun SleepTimerOption(
 private fun PlaybackProgress(
     currentProgress: Float,
     currentBufferProgress: Float,
-    audioControllerManager: IAudioControllerManager
+    audioController: IAudioController
 ) {
     var currentTime by remember { mutableLongStateOf(0L) }
     var totalDuration by remember { mutableLongStateOf(0L) }
 
     LaunchedEffect(Unit) {
         while (true) {
-            currentTime = audioControllerManager.getMediaController()?.currentPosition ?: 0L
-            totalDuration = audioControllerManager.getMediaController()?.duration ?: 0L
+            currentTime = audioController.getMediaController()?.currentPosition ?: 0L
+            val duration = audioController.getMediaController()?.duration
+            totalDuration = if (duration != null && duration != C.TIME_UNSET) {
+                duration
+            } else {
+                0L
+            }
             delay(100L)
         }
     }
 
     Column {
         MediaSeekSlider(currentProgress, currentBufferProgress) {
-            audioControllerManager.seekToProgress(it)
+            audioController.seekToProgress(it)
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = formatTime(currentTime),
+                text = formatTimeMs(currentTime),
                 style = MaterialTheme.typography.labelLarge
             )
             Text(
-                text = formatTime(totalDuration),
+                text = formatTimeMs(totalDuration),
                 style = MaterialTheme.typography.labelLarge
             )
         }
@@ -558,11 +563,11 @@ private fun CollapsedPlayer(
     isCollapsed: Boolean,
     rowAlpha: Float,
     currentProgress: Float,
-    audioControllerManager: IAudioControllerManager,
+    audioController: IAudioController,
     expandPlayer: () -> Unit,
 ) {
-    val mediaInfo = audioControllerManager.currentMediaInfo
-    val shouldShowPlayButton = audioControllerManager.shouldShowPlayButton
+    val mediaInfo = audioController.currentMediaInfo
+    val shouldShowPlayButton = audioController.shouldShowPlayButton
 
     Column(
         modifier = Modifier.alpha(rowAlpha)
@@ -598,14 +603,14 @@ private fun CollapsedPlayer(
             IconButton(
                 onClick = {
                     if (shouldShowPlayButton) {
-                        audioControllerManager.resumePlayback()
+                        audioController.resumePlayback()
                     } else {
-                        audioControllerManager.pauseMedia()
+                        audioController.pauseMedia()
                     }
                 },
                 enabled = isCollapsed
             ) {
-                if (audioControllerManager.isLoading) {
+                if (audioController.isLoading) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
                         strokeWidth = 2.dp
@@ -694,7 +699,7 @@ private fun PodcastPlayer_Collapsed_Preview() {
         )
     }
     PodcastAppTheme() {
-        PodcastPlayer(state = state, audioControllerManager = AudioControllerManagerMock()) { }
+        PodcastPlayer(state = state, audioController = AudioControllerMock()) { }
     }
 }
 
@@ -721,7 +726,7 @@ private fun PodcastPlayer_Expanded_Preview() {
         )
     }
     PodcastAppTheme {
-        PodcastPlayer(Modifier, state, AudioControllerManagerMock()) { }
+        PodcastPlayer(Modifier, state, AudioControllerMock()) { }
     }
 }
 
@@ -729,7 +734,7 @@ private fun PodcastPlayer_Expanded_Preview() {
 @Composable
 private fun PlaybackControlButtonRow_Paused_Preview() {
     PlaybackControlButtonRow(
-        audioControllerManager = AudioControllerManagerMock(),
+        audioController = AudioControllerMock(),
         onClickSleepTimer = {}
     )
 }
@@ -738,7 +743,7 @@ private fun PlaybackControlButtonRow_Paused_Preview() {
 @Composable
 private fun PlaybackControlButtonRow_Playing_Preview() {
     PlaybackControlButtonRow(
-        audioControllerManager = AudioControllerManagerMock(shouldShowPlayButton = false),
+        audioController = AudioControllerMock(shouldShowPlayButton = false),
         onClickSleepTimer = {}
     )
 }
@@ -747,7 +752,7 @@ private fun PlaybackControlButtonRow_Playing_Preview() {
 @Composable
 private fun PlaybackControlButtonRow_Loading_Preview() {
     PlaybackControlButtonRow(
-        audioControllerManager = AudioControllerManagerMock(isLoading = true),
+        audioController = AudioControllerMock(isLoading = true),
         onClickSleepTimer = {}
     )
 }
@@ -756,7 +761,7 @@ private fun PlaybackControlButtonRow_Loading_Preview() {
 @Composable
 private fun PlaybackControlButtonRow_SleepTimerActive_Preview() {
     PlaybackControlButtonRow(
-        audioControllerManager = AudioControllerManagerMock(sleepTimerActive = true),
+        audioController = AudioControllerMock(sleepTimerActive = true),
         onClickSleepTimer = {}
     )
 }
@@ -773,6 +778,6 @@ private fun SleepTimerOption_Preview() {
         sheetState = sheetState,
         scope = scope,
         hideBottomSheet = {},
-        AudioControllerManagerMock()
+        AudioControllerMock()
     )
 }

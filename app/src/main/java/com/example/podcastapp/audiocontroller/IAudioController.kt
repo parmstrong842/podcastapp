@@ -5,7 +5,7 @@ import androidx.media3.session.MediaController
 import com.example.podcastapp.ui.components.PodcastEpItem
 import kotlinx.coroutines.flow.StateFlow
 
-interface IAudioControllerManager {
+interface IAudioController {
     val hasPlaylistItems: Boolean
     val isLoading: Boolean
     val shouldShowPlayButton: Boolean

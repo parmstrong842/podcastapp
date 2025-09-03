@@ -7,7 +7,7 @@ import com.example.podcastapp.ui.components.PodcastEpItem
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-class AudioControllerManagerMock(
+class AudioControllerMock(
     override val hasPlaylistItems: Boolean = true,
     override val isLoading: Boolean = false,
     override val shouldShowPlayButton: Boolean = true,
@@ -22,7 +22,7 @@ class AudioControllerManagerMock(
     val sliderCurrentProgress: Float = 0.25f,
     val sliderBufferProgress: Float = 0.5f,
     val currentPodcastId: Int = 1,
-) : IAudioControllerManager {
+) : IAudioController {
     override fun initializeMediaController() {}
 
     override fun sleepTimer(durationMillis: Long) {}

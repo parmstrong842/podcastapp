@@ -54,6 +54,9 @@ import com.example.podcastapp.ui.viewmodel.PodcastUiState
 import com.example.podcastapp.ui.viewmodel.PodcastViewModel
 import com.example.podcastapp.utils.Resource
 
+// TODO: add episode search
+// TODO: add episode filters (played, unplayed, downloaded)
+
 @Composable
 fun PodcastScreen(
     viewModel: PodcastViewModel,

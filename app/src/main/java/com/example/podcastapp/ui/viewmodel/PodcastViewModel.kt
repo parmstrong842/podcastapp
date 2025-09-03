@@ -9,16 +9,11 @@ import com.example.podcastapp.data.local.DatabaseRepository
 import com.example.podcastapp.data.remote.RemoteRepository
 import com.example.podcastapp.ui.components.PodcastEpItem
 import com.example.podcastapp.utils.Resource
-import com.prof18.rssparser.RssParserBuilder
-import com.prof18.rssparser.model.RssChannel
 import com.prof18.rssparser.model.RssItem
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import org.xmlpull.v1.XmlPullParser
-import org.xmlpull.v1.XmlPullParserFactory
-import java.io.InputStream
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
@@ -26,12 +21,6 @@ import java.util.Locale
 
 
 private const val tag = "PodcastViewModel"
-
-data class PodcastFeed(
-    val podcastTitle: String,
-    val podcastImage: String,
-    val episodes: List<PodcastEpItem>
-)
 
 data class PodcastFetchState(
     val podcastTitle: String,
@@ -60,40 +49,19 @@ class PodcastViewModel(
     init {
         viewModelScope.launch {
             val podcastFetchResult = try {
-                val parser = RssParserBuilder().build()
-                val channel: RssChannel = parser.getRssChannel(feedUrl)
+                val channel = remoteRepository.getRssChannel(feedUrl)
 
                 val podcastTitle = channel.title.orEmpty()
                 val podcastImage = channel.itunesChannelData?.image
                         ?: channel.image?.url.orEmpty()
 
                 val episodes = channel.items.map { it.toPodcastEpItem(podcastTitle, podcastImage, feedUrl) }
-//                val podcastResponse = remoteRepository.podcastByFeedID(podcastId)
-//                val response = remoteRepository.episodesByFeedID(podcastId)
-//                val allProgress = databaseRepository.getAllProgressForPodcast(podcastId)
-//                val episodes = response.items.map {
-//                    val progress = allProgress.find { p -> p.guid == it.id } // TODO:
-//                    val remainingMs = progress?.timeLeftMs() ?: (it.duration.toLong() * 1000L)
-//                    val timeLeft = formatTime(remainingMs)
-//                    PodcastEpItem(
-//                        image = it.image,
-//                        podcastTitle = podcastResponse.feed.title,
-//                        pubDate = it.datePublishedPretty,
-//                        episodeName = it.title,
-//                        description = it.description,
-//                        enclosureUrl = it.enclosureUrl,
-//                        timeLeft = timeLeft,
-//                        progress = progress?.progressFraction() ?: 0f,
-//                        feedUrl = podcastId,
-//                        guid = it.id,
-//                        played = progress?.finished == true
-//                    )
-//                }
+
                 Resource.Success(
                     PodcastFetchState(
                         podcastTitle = podcastTitle,
                         podcastImage = podcastImage,
-                        subscribed = databaseRepository.isSubscribed(feedUrl) != null,
+                        subscribed = databaseRepository.isSubscribed(feedUrl) == true,
                         episodes = episodes
 
                     )
@@ -127,7 +95,14 @@ class PodcastViewModel(
 
         val audioUrl = this.audio ?: "" // TODO: handle case where there is no audio
 
-        val duration = this.itunesItemData?.duration.orEmpty()
+        val duration = parseItunesDuration(this.itunesItemData?.duration)
+
+        val stableGuid = when {
+            !this.guid.isNullOrBlank() -> this.guid!!
+            else -> java.security.MessageDigest.getInstance("SHA-256")
+                .digest((feedUrl + title.orEmpty() + pubDate.orEmpty()).toByteArray())
+                .joinToString("") { "%02x".format(it) }
+        }
 
         return PodcastEpItem(
             podcastTitle = podcastTitle,
@@ -137,12 +112,36 @@ class PodcastViewModel(
             episodeImage = epImage,
             episodeDescription = description,
             enclosureUrl = audioUrl,
-            timeLeft = normalizeDurationToHHMMSS(duration), // same helper you already have
-            progress = 0f,                 // fill from DB later
+            timeLeft = formatTime(duration),
+            progress = 0f,
             feedUrl = feedUrl,
-            guid = this.guid.orEmpty(),
-            finished = false               // fill from DB later
+            guid = stableGuid,
+            finished = false
         )
+    }
+
+    private fun parseItunesDuration(raw: String?): Long {
+        if (raw.isNullOrBlank()) return 0L
+        return try {
+            val p = raw.split(":").map { it.toLong() }
+            when (p.size) {
+                1 -> p[0]                                   // SS
+                2 -> p[0] * 60 + p[1]                       // MM:SS
+                3 -> p[0] * 3600 + p[1] * 60 + p[2]         // HH:MM:SS
+                else -> 0L
+            }
+        } catch (_: Exception) { 0L }
+    }
+
+    private fun formatTime(totalSeconds: Long): String {
+        val hours = totalSeconds / 3600
+        val minutes = (totalSeconds % 3600) / 60
+        val seconds = totalSeconds % 60
+        return if (hours > 0) {
+            "%d:%02d:%02d".format(hours, minutes, seconds)
+        } else {
+            "%02d:%02d".format(minutes, seconds)
+        }
     }
 
     fun subscribeToPodcast() {

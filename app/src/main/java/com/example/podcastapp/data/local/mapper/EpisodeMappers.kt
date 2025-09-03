@@ -15,7 +15,7 @@ fun EpisodeWithState.toPodcastEpItem(): PodcastEpItem {
         episodeImage = episodeImage,
         episodeDescription = episodeDescription,
         enclosureUrl = enclosureUrl,
-        timeLeft = formatTime(timeLeft),
+        timeLeft = formatTimeMs(timeLeft),
         progress = progress,
         feedUrl = feedUrl,
         guid = guid,
@@ -23,7 +23,7 @@ fun EpisodeWithState.toPodcastEpItem(): PodcastEpItem {
     )
 }
 
-fun formatTime(timeMs: Long): String {
+fun formatTimeMs(timeMs: Long): String {
     val totalSeconds = timeMs / 1000
     val hours = totalSeconds / 3600
     val minutes = (totalSeconds % 3600) / 60

@@ -34,6 +34,7 @@ import com.example.podcastapp.PodcastApplication
 import com.example.podcastapp.R
 import com.example.podcastapp.ui.components.PodcastEpItem
 import com.example.podcastapp.ui.components.PodcastEpisodeCard
+import com.example.podcastapp.ui.components.PodcastTopBar
 import com.example.podcastapp.ui.theme.Dimens
 import com.example.podcastapp.ui.viewmodel.DownloadsViewModel
 import com.example.podcastapp.ui.viewmodel.HistoryViewModel

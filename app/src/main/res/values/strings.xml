@@ -2,4 +2,10 @@
     <string name="app_name">PodcastApp</string>
     <string name="import_subscriptions_from_opml">import subscriptions from OPML</string>
     <string name="completed">Completed</string>
+    <string name="add_rss_feed">Add Rss Feed</string>
+    <string name="enter_an_rss_feed_url">Enter an RSS feed URL</string>
+    <string name="https_www_example_com_podcast_rss">https://www.example.com/podcast.rss</string>
+    <string name="add_rss">Add</string>
+    <string name="cancel">Cancel</string>
+    <string name="invalid_rss_feed_url">Invalid RSS feed URL</string>
 </resources>

@@ -4,6 +4,7 @@ import com.example.podcastapp.data.remote.models.podcastindex.EpisodeFeedRespons
 import com.example.podcastapp.data.remote.models.podcastindex.EpisodeResponse
 import com.example.podcastapp.data.remote.models.podcastindex.PodcastByFeedIDResponse
 import com.example.podcastapp.data.remote.models.podcastindex.SearchResponse
+import com.prof18.rssparser.model.RssChannel
 
 interface RemoteRepository {
 
@@ -15,5 +16,5 @@ interface RemoteRepository {
 
     suspend fun episodeByID(id: Long): EpisodeResponse
 
-    suspend fun getRssFeedContent(feedUrl: String): okhttp3.ResponseBody
+    suspend fun getRssChannel(feedUrl: String): RssChannel
 }

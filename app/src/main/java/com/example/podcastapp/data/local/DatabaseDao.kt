@@ -26,11 +26,14 @@ get episode queue
 
 @Dao
 interface DatabaseDao {
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertPodcast(podcast: PodcastEntity): Long
+
     @Upsert
     suspend fun upsertPodcast(podcast: PodcastEntity)
 
-    @Upsert
-    suspend fun upsertEpisode(episode: EpisodeEntity)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertEpisode(episode: EpisodeEntity)
 
     @Query("UPDATE podcasts SET subscribed = 0 WHERE feedUrl = :feedUrl")
     suspend fun unsubscribe(feedUrl: String)
@@ -109,12 +112,12 @@ interface DatabaseDao {
 
     @Transaction
     suspend fun ensureEverythingExists(pod: PodcastEpItem): Long? {
-        upsertPodcast(PodcastEntity(
+        insertPodcast(PodcastEntity(
             feedUrl = pod.feedUrl,
             podcastTitle = pod.podcastTitle,
             podcastImage = pod.podcastImage
         ))
-        upsertEpisode(EpisodeEntity(
+        insertEpisode(EpisodeEntity(
             feedUrl = pod.feedUrl,
             guid = pod.guid,
             episodeTitle = pod.episodeTitle,

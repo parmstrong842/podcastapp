@@ -53,9 +53,6 @@ class PodcastAudioService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
 
     private lateinit var databaseRepository: DatabaseRepository
-    private val coroutineScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
-    private var progressUpdateJob: Job? = null
-    private var currentMediaItem: MediaItem? = null
     private var maxBufferMs = 1000 * 60 * 10
 
     private val SPEED_0_5X = "SPEED_0_5X"
@@ -146,123 +143,10 @@ class PodcastAudioService : MediaSessionService() {
             )
             setHandleAudioBecomingNoisy(true)
         }.build()
-        player.addListener(object : Player.Listener {
-            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                mediaItem?.let {
-                    currentMediaItem = it
-                }
-                if (mediaItem == null) {
-                    Log.d(tag, "onMediaItemTransition received null, ignoring update.")
-                }
-            }
-
-            override fun onIsPlayingChanged(isPlaying: Boolean) {
-                Log.d(tag, "onIsPlayingChanged: $isPlaying")
-                if (isPlaying) {
-                    // backup in case other methods fail to save progress
-                    if (progressUpdateJob == null || progressUpdateJob?.isCancelled == true) {
-                        progressUpdateJob = coroutineScope.launch {
-                            while (isActive) {
-                                currentMediaItem?.let {
-                                    coroutineScope.launch {
-                                        saveCurrentProgress(
-                                            currentMediaItem = it,
-                                            currentPosition = mediaSession?.player?.currentPosition ?: 0,
-                                            totalDuration = mediaSession?.player?.duration ?: 0,
-                                            reason = "periodic or playback started"
-                                        )
-                                    }
-                                }
-                                delay(60000)
-                            }
-                        }
-                    }
-                } else {
-                    progressUpdateJob?.cancel()
-                    progressUpdateJob = null
-                    currentMediaItem?.let {
-                        if (player.playbackState != Player.STATE_ENDED) {
-                            coroutineScope.launch {
-                                saveCurrentProgress(
-                                    currentMediaItem = it,
-                                    currentPosition = mediaSession?.player?.currentPosition ?: 0,
-                                    totalDuration = mediaSession?.player?.duration ?: 0,
-                                    reason = "playback stopped but not ended"
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            override fun onPositionDiscontinuity(
-                oldPosition: Player.PositionInfo,
-                newPosition: Player.PositionInfo,
-                reason: Int
-            ) {
-                if (reason == Player.DISCONTINUITY_REASON_REMOVE || reason == Player.DISCONTINUITY_REASON_SEEK) {
-                    currentMediaItem?.let {
-                        coroutineScope.launch {
-                            saveCurrentProgress(
-                                currentMediaItem = it,
-                                currentPosition = oldPosition.positionMs,
-                                totalDuration = mediaSession?.player?.duration ?: 0,
-                                reason = "position discontinuity $reason"
-                            )
-                        }
-                    }
-                }
-            }
-
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                if (playbackState == Player.STATE_ENDED) {
-                    currentMediaItem?.let {
-                        coroutineScope.launch {
-                            //Log.d(tag, "currentPosition: ${mediaSession?.player?.currentPosition}, duration: ${mediaSession?.player?.duration}")
-                            saveCurrentProgress(
-                                currentMediaItem = it,
-                                currentPosition = mediaSession?.player?.currentPosition ?: 0, // TODO:
-                                totalDuration = mediaSession?.player?.duration ?: 0,
-                                reason = "playback ended",
-                                finished = true
-                            )
-                        }
-                    }
-                }
-            }
-        })
         mediaSession = MediaSession.Builder(this, player)
             .setCallback(CustomMediaSessionCallback())
             .setCustomLayout(ImmutableList.of(seekBackButton, seekForwardButton, speed_1xButton, seekToPreviousButton))
             .build()
-    }
-
-    private suspend fun saveCurrentProgress(
-        currentMediaItem: MediaItem,
-        currentPosition: Long,
-        totalDuration: Long,
-        reason: String = "",
-        finished: Boolean = false
-    ) {
-        Log.d(tag, "save: $reason")
-        val extras = currentMediaItem.mediaMetadata.extras ?: return
-
-        val feedUrl = extras.getString("FEED_URL") ?: return
-        val guid = extras.getString("GUID") ?: return
-
-        try {
-            withContext(Dispatchers.IO) {
-                databaseRepository.saveProgress(
-                    feedUrl = feedUrl,
-                    guid = guid,
-                    position = currentPosition,
-                    duration = totalDuration,
-                    finished = finished
-                )
-            }
-        } catch (e: Exception) {
-            Log.e(tag, "Failed to save progress", e)
-        }
     }
 
     @UnstableApi
@@ -410,28 +294,9 @@ class PodcastAudioService : MediaSessionService() {
         }
     }
 
-    private fun isSoughtToEnd(player: Player?, tolerance: Long = 1000L): Boolean {
-        player?.let {
-            val duration = it.duration
-            val currentPosition = it.currentPosition
-            return duration > 0 && currentPosition >= (duration - tolerance)
-        }
-        return false
-    }
 
     @OptIn(UnstableApi::class)
     override fun onTaskRemoved(rootIntent: Intent?) {
-        Log.d(tag, "onTaskRemoved")
-        currentMediaItem?.let {
-            coroutineScope.launch {
-                saveCurrentProgress(
-                    currentMediaItem = it,
-                    currentPosition = mediaSession?.player?.currentPosition ?: 0,
-                    totalDuration = mediaSession?.player?.duration ?: 0,
-                    reason = "task removed",
-                )
-            }
-        }
         pauseAllPlayersAndStopSelf()
     }
 

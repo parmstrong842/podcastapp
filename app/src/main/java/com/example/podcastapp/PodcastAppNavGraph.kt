@@ -14,7 +14,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -33,7 +32,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
@@ -42,8 +40,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSavedStateNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import androidx.navigation3.ui.rememberSceneSetupNavEntryDecorator
-import com.example.podcastapp.audiocontroller.IAudioControllerManager
-import com.example.podcastapp.ui.components.PodcastEpItem
+import com.example.podcastapp.audiocontroller.IAudioController
 import com.example.podcastapp.ui.screens.EpisodeScreen
 import com.example.podcastapp.ui.screens.ExploreScreen
 import com.example.podcastapp.ui.screens.HomeScreen
@@ -76,7 +73,7 @@ val BottomNavigation = listOf(
 )
 
 @Composable
-fun PodcastNavGraph(audioControllerManager: IAudioControllerManager) {
+fun PodcastNavGraph(audioController: IAudioController) {
 
     val topLevelBackStack = remember { TopLevelBackStack<Any>(NavigationScreen.Home, BottomNavigation) }
 
@@ -123,13 +120,13 @@ fun PodcastNavGraph(audioControllerManager: IAudioControllerManager) {
                     entry<NavigationScreen.Explore> {
                         ExploreScreen(
                             navigateToSearch = { topLevelBackStack.add(NavigationScreen.Search) },
-                            playMedia = { audioControllerManager.playMedia(it) },
+                            playMedia = { audioController.playMedia(it) },
                             navigateToEpisode = { topLevelBackStack.add(NavigationScreen.Episode(it)) }
                         )
                     }
                     entry<NavigationScreen.User> {
                         UserScreen(
-                            playMedia = { audioControllerManager.playMedia(it) },
+                            playMedia = { audioController.playMedia(it) },
                             navigateToPodcast = { topLevelBackStack.add(NavigationScreen.Podcast(it)) },
                             navigateToEpisode = { topLevelBackStack.add(NavigationScreen.Episode(it)) }
                         )
@@ -138,7 +135,7 @@ fun PodcastNavGraph(audioControllerManager: IAudioControllerManager) {
                         PodcastScreen(
                             viewModel = viewModel(factory = PodcastViewModel.Factory(it.feedUrl, LocalContext.current.applicationContext as PodcastApplication)),
                             navigateBack = { topLevelBackStack.removeLast() },
-                            playMedia = { podcastEpItem ->  audioControllerManager.playMedia(podcastEpItem) },
+                            playMedia = { podcastEpItem ->  audioController.playMedia(podcastEpItem) },
                             navigateToEpisode = { episodeID -> topLevelBackStack.add(NavigationScreen.Episode(episodeID)) }
                         )
                     }
@@ -146,7 +143,7 @@ fun PodcastNavGraph(audioControllerManager: IAudioControllerManager) {
                         EpisodeScreen(
                             viewModel = viewModel(factory = EpisodeViewModel.Factory(it.guid, LocalContext.current.applicationContext as PodcastApplication)),
                             navigateBack = { topLevelBackStack.removeLast() },
-                            audioControllerManager = audioControllerManager
+                            audioController = audioController
                         )
                     }
                     entry<NavigationScreen.Search> {
@@ -157,32 +154,32 @@ fun PodcastNavGraph(audioControllerManager: IAudioControllerManager) {
                     }
                 }
             )
-            Button(onClick = { audioControllerManager.playMedia(
-                PodcastEpItem(
-                    podcastTitle = "The Joe Rogan Experience",
-                    podcastImage = "https://megaphone.imgix.net/podcasts/6b48647a-f635-11ef-8324-2b180a017350/image/d142ec926f025bd64b32d9a2e96aa81a.jpg?ixlib=rails-4.3.1&max-w=3000&max-h=3000&fit=crop&auto=format,compress",
-                    pubDate = "date",
-                    episodeTitle = "Kalimba",
-                    episodeImage = "https://megaphone.imgix.net/podcasts/6b48647a-f635-11ef-8324-2b180a017350/image/d142ec926f025bd64b32d9a2e96aa81a.jpg?ixlib=rails-4.3.1&max-w=3000&max-h=3000&fit=crop&auto=format,compress",
-                    episodeDescription = "description",
-                    enclosureUrl = "https://www.learningcontainer.com/wp-content/uploads/2020/02/Kalimba.mp3",
-                    timeLeft = "30:00",
-                    progress = 0.5f,
-                    feedUrl = "feedUrl",
-                    guid = "1",
-                    finished = false
-                ),
-            ) },
-            ) {
-                Text("test")
-            }
+//            Button(onClick = { audioController.playMedia(
+//                PodcastEpItem(
+//                    podcastTitle = "The Joe Rogan Experience",
+//                    podcastImage = "https://megaphone.imgix.net/podcasts/6b48647a-f635-11ef-8324-2b180a017350/image/d142ec926f025bd64b32d9a2e96aa81a.jpg?ixlib=rails-4.3.1&max-w=3000&max-h=3000&fit=crop&auto=format,compress",
+//                    pubDate = "date",
+//                    episodeTitle = "Kalimba",
+//                    episodeImage = "https://megaphone.imgix.net/podcasts/6b48647a-f635-11ef-8324-2b180a017350/image/d142ec926f025bd64b32d9a2e96aa81a.jpg?ixlib=rails-4.3.1&max-w=3000&max-h=3000&fit=crop&auto=format,compress",
+//                    episodeDescription = "description",
+//                    enclosureUrl = "https://www.learningcontainer.com/wp-content/uploads/2020/02/Kalimba.mp3",
+//                    timeLeft = "30:00",
+//                    progress = 0.5f,
+//                    feedUrl = "feedUrl",
+//                    guid = "1",
+//                    finished = false
+//                ),
+//            ) },
+//            ) {
+//                Text("test")
+//            }
             AnimatedVisibility(
-                visible = audioControllerManager.hasPlaylistItems,
+                visible = audioController.hasPlaylistItems,
                 modifier = Modifier.align(Alignment.BottomCenter)
             ) {
                 PodcastPlayer(
                     state = playerState,
-                    audioControllerManager = audioControllerManager,
+                    audioController = audioController,
                     navigateToPodcast = { topLevelBackStack.add(NavigationScreen.Podcast(it)) }
                 )
             }

@@ -8,7 +8,6 @@ import com.example.podcastapp.data.local.PodcastAppDatabase
 import com.example.podcastapp.data.remote.PodcastIndexApi
 import com.example.podcastapp.data.remote.RemoteRepositoryImpl
 import com.example.podcastapp.data.remote.RemoteRepository
-import com.example.podcastapp.data.remote.RssService
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -42,17 +41,8 @@ class AppDataContainer(private val context: Context) {
             .create(PodcastIndexApi::class.java)
     }
 
-    private val rssService: RssService by lazy {
-        Retrofit.Builder()
-            .baseUrl("https://placeholder/") // Base URL is required but will be overridden
-            .client(OkHttpClient())
-            .addConverterFactory(retrofit2.converter.scalars.ScalarsConverterFactory.create())
-            .build()
-            .create(RssService::class.java)
-    }
-
     val remoteRepository: RemoteRepository by lazy {
-        RemoteRepositoryImpl(podcastIndexApi, rssService)
+        RemoteRepositoryImpl(podcastIndexApi)
     }
 
     val databaseRepository: DatabaseRepository by lazy {

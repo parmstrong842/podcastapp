@@ -5,47 +5,47 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import com.example.podcastapp.audiocontroller.AudioControllerManagerImpl
-import com.example.podcastapp.audiocontroller.IAudioControllerManager
+import com.example.podcastapp.audiocontroller.AudioControllerImpl
+import com.example.podcastapp.audiocontroller.IAudioController
 import com.example.podcastapp.ui.theme.PodcastAppTheme
 
 private const val tag = "MyMainActivity"
 
 class MainActivity : ComponentActivity() {
 
-    private lateinit var audioControllerManager: IAudioControllerManager
+    private lateinit var audioController: IAudioController
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
         val sharedPrefs = getSharedPreferences("media_prefs", MODE_PRIVATE)
-        audioControllerManager = AudioControllerManagerImpl(this, (application as PodcastApplication).container.databaseRepository, sharedPrefs)
+        audioController = AudioControllerImpl(this, (application as PodcastApplication).container.databaseRepository, sharedPrefs)
 
         setContent {
             PodcastAppTheme {
-                PodcastNavGraph(audioControllerManager)
+                PodcastNavGraph(audioController)
             }
         }
     }
 
     override fun onStart() {
         super.onStart()
-        audioControllerManager.initializeMediaController()
+        audioController.initializeMediaController()
     }
 
     override fun onStop() {
         Log.d(tag, "onStop")
         super.onStop()
-        if (!audioControllerManager.mediaIsPlaying) {
-            audioControllerManager.release()
+        if (!audioController.mediaIsPlaying) {
+            audioController.release()
         }
     }
 
     override fun onDestroy() {
         Log.d(tag, "onDestroy")
         super.onDestroy()
-        audioControllerManager.release()
+        audioController.release()
     }
 }
 

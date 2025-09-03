@@ -26,7 +26,7 @@ import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.integration.compose.placeholder
 import com.example.podcastapp.R
-import com.example.podcastapp.audiocontroller.IAudioControllerManager
+import com.example.podcastapp.audiocontroller.IAudioController
 import com.example.podcastapp.ui.viewmodel.EpisodeViewModel
 
 @OptIn(ExperimentalGlideComposeApi::class)
@@ -34,7 +34,7 @@ import com.example.podcastapp.ui.viewmodel.EpisodeViewModel
 fun EpisodeScreen(
     viewModel: EpisodeViewModel,
     navigateBack: () -> Unit,
-    audioControllerManager: IAudioControllerManager
+    audioController: IAudioController
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -58,14 +58,14 @@ fun EpisodeScreen(
             )
             IconButton(
                 onClick = {
-                    if (audioControllerManager.shouldShowPlayButton) {
-                        audioControllerManager.resumePlayback()
+                    if (audioController.shouldShowPlayButton) {
+                        audioController.resumePlayback()
                     } else {
-                        audioControllerManager.pauseMedia()
+                        audioController.pauseMedia()
                     }
                 },
             ) {
-                if (audioControllerManager.isLoading) {
+                if (audioController.isLoading) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
                         color = Color.White,
@@ -73,12 +73,12 @@ fun EpisodeScreen(
                     )
                 } else {
                     Icon(
-                        imageVector = if (audioControllerManager.shouldShowPlayButton) {
+                        imageVector = if (audioController.shouldShowPlayButton) {
                             Icons.Filled.PlayArrow
                         } else {
                             Icons.Filled.Pause
                         },
-                        contentDescription = if (audioControllerManager.shouldShowPlayButton) "Play" else "Pause",
+                        contentDescription = if (audioController.shouldShowPlayButton) "Play" else "Pause",
                         tint = Color.White
                     )
                 }

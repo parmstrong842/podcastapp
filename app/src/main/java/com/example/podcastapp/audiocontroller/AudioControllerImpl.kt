@@ -31,9 +31,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import androidx.core.net.toUri
 import androidx.core.content.edit
+import androidx.media3.common.C
 import com.example.podcastapp.data.local.model.EpisodeProgress
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
 
-private const val tag = "AudioControllerManager"
+private const val tag = "AudioController"
 
 data class MediaInfo(
     val title: String,
@@ -50,11 +53,11 @@ data class SavedMediaItem(
     val title: String,
 )
 
-class AudioControllerManagerImpl(
+class AudioControllerImpl(
     private val context: Context,
     private val databaseRepository: DatabaseRepository,
     private val sharedPrefs: SharedPreferences
-) : IAudioControllerManager {
+) : IAudioController {
 
     override var hasPlaylistItems by mutableStateOf(false)
         private set
@@ -74,6 +77,7 @@ class AudioControllerManagerImpl(
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var playMediaJob: Job? = null
     private var timerJob: Job? = null
+    private var progressUpdateJob: Job? = null
 
     private val _currentSpeed = MutableStateFlow("1x")
     override val currentSpeed: StateFlow<String> = _currentSpeed.asStateFlow()
@@ -91,29 +95,40 @@ class AudioControllerManagerImpl(
                     override fun onPlaybackStateChanged(state: Int) {
                         when (state) {
                             Player.STATE_READY -> {
-                                Log.d(tag, "Player is ready")
+                                //Log.d(tag, "Player is ready")
                                 isLoading = false
                             }
 
                             Player.STATE_ENDED -> {
-                                Log.d(tag, "Playback ended")
+                                //Log.d(tag, "Playback ended")
                                 isLoading = false
+                                mediaController?.currentMediaItem?.let {
+                                    scope.launch {
+                                        saveCurrentProgress(
+                                            currentMediaItem = it,
+                                            currentPosition = mediaController?.currentPosition ?: 0,
+                                            totalDuration = mediaController?.duration ?: 0,
+                                            reason = "playback ended",
+                                            finished = true
+                                        )
+                                    }
+                                }
                             }
 
                             Player.STATE_BUFFERING -> {
-                                Log.d(tag, "Buffering")
+                                //Log.d(tag, "Buffering")
                                 isLoading = true
                             }
 
                             Player.STATE_IDLE -> {
-                                Log.d(tag, "Player idle")
+                                //Log.d(tag, "Player idle")
                                 isLoading = false
                             }
                         }
                     }
 
                     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                        Log.d(tag, "onMediaItemTransition")
+                        //Log.d(tag, "onMediaItemTransition")
                         updatePlaylistState()
                         currentMediaInfo = mediaItem?.let { item ->
                             val metadata = item.mediaMetadata
@@ -126,9 +141,63 @@ class AudioControllerManagerImpl(
                     }
 
                     override fun onIsPlayingChanged(isPlaying: Boolean) {
-                        Log.d(tag, "isPlaying: $isPlaying")
+                        //Log.d(tag, "isPlaying: $isPlaying")
                         mediaIsPlaying = isPlaying
                         updatePlayButtonState()
+                        if (isPlaying) {
+                            // backup in case other methods fail to save progress
+                            if (progressUpdateJob == null || progressUpdateJob?.isCancelled == true) {
+                                progressUpdateJob = scope.launch {
+                                    while (isActive) {
+                                        mediaController?.currentMediaItem?.let {
+                                            scope.launch {
+                                                saveCurrentProgress(
+                                                    currentMediaItem = it,
+                                                    currentPosition = mediaController?.currentPosition ?: 0,
+                                                    totalDuration = mediaController?.duration ?: 0,
+                                                    reason = "periodic or playback started"
+                                                )
+                                            }
+                                        }
+                                        delay(60000)
+                                    }
+                                }
+                            }
+                        } else {
+                            progressUpdateJob?.cancel()
+                            progressUpdateJob = null
+                            mediaController?.currentMediaItem?.let {
+                                if (mediaController?.playbackState != Player.STATE_ENDED) {
+                                    scope.launch {
+                                        saveCurrentProgress(
+                                            currentMediaItem = it,
+                                            currentPosition = mediaController?.currentPosition ?: 0,
+                                            totalDuration = mediaController?.duration ?: 0,
+                                            reason = "playback stopped but not ended"
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    override fun onPositionDiscontinuity(
+                        oldPosition: Player.PositionInfo,
+                        newPosition: Player.PositionInfo,
+                        reason: Int
+                    ) {
+                        if (reason == Player.DISCONTINUITY_REASON_REMOVE || reason == Player.DISCONTINUITY_REASON_SEEK) {
+                            mediaController?.currentMediaItem?.let {
+                                scope.launch {
+                                    saveCurrentProgress(
+                                        currentMediaItem = it,
+                                        currentPosition = oldPosition.positionMs,
+                                        totalDuration = mediaController?.duration ?: 0,
+                                        reason = "position discontinuity $reason"
+                                    )
+                                }
+                            }
+                        }
                     }
 
                     override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
@@ -151,15 +220,29 @@ class AudioControllerManagerImpl(
         }
     }
 
-    private fun updatePlaylistState() {
-        hasPlaylistItems = (mediaController?.mediaItemCount ?: 0) > 0
-    }
+    override fun playMedia(pod: PodcastEpItem) {
+        playMediaJob = scope.launch {
+            val extras = Bundle().apply {
+                putString("FEED_URL", pod.feedUrl)
+                putString("GUID", pod.guid)
+            }
 
-    private fun updatePlayButtonState() {
-        mediaController?.let { player ->
-            shouldShowPlayButton = Util.shouldShowPlayButton(player)
-        } ?: run {
-            shouldShowPlayButton = true
+            val mediaItemToSave = SavedMediaItem(
+                feedUrl = pod.feedUrl,
+                guid = pod.guid,
+                enclosureUri = pod.enclosureUrl,
+                episodeName = pod.episodeTitle,
+                image = pod.episodeImage,
+                title = pod.podcastTitle,
+            )
+            saveCurrentMediaItem(mediaItemToSave)
+
+            // TODO: I don't know; want to avoid items in episode_state that have 0 duration
+            val savedProgress = databaseRepository.getProgress(pod.feedUrl, pod.guid)
+            prepareMediaItem(pod.enclosureUrl, pod.episodeTitle, pod.episodeImage, pod.podcastTitle, extras, savedProgress)
+            databaseRepository.insertEpisodeHistory(pod)
+
+            mediaController?.play()
         }
     }
 
@@ -190,6 +273,51 @@ class AudioControllerManagerImpl(
                 controller.setMediaItem(mediaItem)
             }
             controller.prepare()
+        }
+    }
+
+    private suspend fun saveCurrentProgress(
+        currentMediaItem: MediaItem,
+        currentPosition: Long,
+        totalDuration: Long,
+        reason: String = "",
+        finished: Boolean = false
+    ) {
+        if (totalDuration == C.TIME_UNSET) {
+            Log.d(tag, "saveCurrentProgress: invalid duration, skipping save.")
+            return
+        }
+        val extras = currentMediaItem.mediaMetadata.extras ?: return
+
+        val feedUrl = extras.getString("FEED_URL") ?: return
+        val guid = extras.getString("GUID") ?: return
+        Log.d(tag, "save: $reason")
+
+        try {
+            withContext(Dispatchers.IO) {
+                databaseRepository.saveProgress(
+                    feedUrl = feedUrl,
+                    guid = guid,
+                    position = currentPosition,
+                    duration = totalDuration,
+                    finished = finished
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(tag, "Failed to save progress", e)
+        }
+    }
+
+
+    private fun updatePlaylistState() {
+        hasPlaylistItems = (mediaController?.mediaItemCount ?: 0) > 0
+    }
+
+    private fun updatePlayButtonState() {
+        mediaController?.let { player ->
+            shouldShowPlayButton = Util.shouldShowPlayButton(player)
+        } ?: run {
+            shouldShowPlayButton = true
         }
     }
 
@@ -239,31 +367,6 @@ class AudioControllerManagerImpl(
         }
     }
 
-    override fun playMedia(pod: PodcastEpItem) {
-        playMediaJob = scope.launch {
-            val extras = Bundle().apply {
-                putString("FEED_URL", pod.feedUrl)
-                putString("GUID", pod.guid)
-            }
-
-            val mediaItemToSave = SavedMediaItem(
-                feedUrl = pod.feedUrl,
-                guid = pod.guid,
-                enclosureUri = pod.enclosureUrl,
-                episodeName = pod.episodeTitle,
-                image = pod.episodeImage,
-                title = pod.podcastTitle,
-            )
-            saveCurrentMediaItem(mediaItemToSave)
-
-            val savedProgress = databaseRepository.getProgress(pod.feedUrl, pod.guid)
-            prepareMediaItem(pod.enclosureUrl, pod.episodeTitle, pod.episodeImage, pod.podcastTitle, extras, savedProgress)
-            databaseRepository.insertEpisodeHistory(pod)
-
-            mediaController?.play()
-        }
-    }
-
     override fun pauseMedia() {
         mediaController?.pause()
     }
@@ -302,7 +405,7 @@ class AudioControllerManagerImpl(
             }
 
             val feedUrl = sharedPrefs.getString("current_media_item_feed_url", "") ?: ""
-            val guid = sharedPrefs.getString("current_media_item_guid", "")
+            val guid = sharedPrefs.getString("current_media_item_guid", "") ?: ""
             val enclosure = sharedPrefs.getString("current_media_item_enclosure", "") ?: ""
             val episodeName = sharedPrefs.getString("current_media_item_episode_name", "") ?: ""
             val image = sharedPrefs.getString("current_media_item_image", "") ?: ""
@@ -313,9 +416,9 @@ class AudioControllerManagerImpl(
                 putString("GUID", guid)
             }
 
-//            val savedProgress = databaseRepository.getProgress(feedUrl, guid)
-//
-//            prepareMediaItem(enclosure, episodeName, image, title, extras, savedProgress)
+            val savedProgress = databaseRepository.getProgress(feedUrl, guid)
+
+            prepareMediaItem(enclosure, episodeName, image, title, extras, savedProgress)
         }
     }
 
@@ -329,6 +432,22 @@ class AudioControllerManagerImpl(
         Log.d(tag, "release")
         playMediaJob?.cancel()
         playMediaJob = null
+        progressUpdateJob?.cancel()
+        progressUpdateJob = null
+
+        mediaController?.currentMediaItem?.let {
+            val currentPosition = mediaController?.currentPosition ?: 0
+            val totalDuration = mediaController?.duration ?: 0
+            scope.launch {
+                saveCurrentProgress(
+                    currentMediaItem = it,
+                    currentPosition = currentPosition,
+                    totalDuration = totalDuration,
+                    reason = "release called"
+                )
+            }
+        }
+
         mediaController?.release()
         mediaController = null
     }
