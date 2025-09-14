@@ -206,7 +206,7 @@ fun PodcastPlayer(
                 Icon(imageVector = Icons.Default.KeyboardArrowDown, contentDescription = "collapse player")
             }
             GlideImage(
-                model = audioController.currentMediaInfo?.imageUri,
+                model = audioController.currentMediaInfo?.episodeImage,
                 contentDescription = "episode image",
                 modifier = Modifier
                     .padding(start = imageStartPadding, top = 4.dp)
@@ -255,14 +255,14 @@ private fun ExpandedPlayer(
     ) {
         Column {
             Text(
-                text = mediaInfo?.episodeName ?: "error",
+                text = mediaInfo?.episodeTitle ?: "error",
                 modifier = Modifier.basicMarquee(),
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 style = MaterialTheme.typography.headlineSmall
             )
             Text(
-                text = mediaInfo?.title ?: "error",
+                text = mediaInfo?.podcastTitle ?: "error",
                 modifier = Modifier
                     .alpha(0.75f)
                     .clickable {
@@ -588,13 +588,13 @@ private fun CollapsedPlayer(
                     .padding(start = 62.dp)
             ) {
                 Text(
-                    text = mediaInfo?.episodeName ?: "error",
+                    text = mediaInfo?.episodeTitle ?: "error",
                     modifier = Modifier.basicMarquee(),
                     maxLines = 1,
                     style = MaterialTheme.typography.titleMedium
                 )
                 Text(
-                    text = mediaInfo?.title ?: "error",
+                    text = mediaInfo?.podcastTitle ?: "error",
                     modifier = Modifier.alpha(0.65f),
                     maxLines = 1,
                     style = MaterialTheme.typography.titleMedium

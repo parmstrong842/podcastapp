@@ -1,12 +1,9 @@
 package com.example.podcastapp.data.local
 
-import androidx.room.Transaction
-import com.example.podcastapp.data.local.entity.EpisodeEntity
-import com.example.podcastapp.data.local.entity.EpisodeStateEntity
+import com.example.podcastapp.audiocontroller.EpisodeMetadata
 import com.example.podcastapp.data.local.entity.PodcastEntity
 import com.example.podcastapp.data.local.mapper.toPodcastEpItem
 import com.example.podcastapp.data.local.model.EpisodeProgress
-import com.example.podcastapp.data.local.model.EpisodeWithState
 import com.example.podcastapp.ui.components.PodcastEpItem
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -40,9 +37,13 @@ class DatabaseRepositoryImpl(
         return dao.getProgress(feedUrl, guid)
     }
 
+    override suspend fun getAllProgressForPodcast(feedUrl: String): List<PodcastEpItem> {
+        return dao.getAllProgressForPodcast(feedUrl).map { it.toPodcastEpItem() }
+    }
 
-    override suspend fun insertEpisodeHistory(pod: PodcastEpItem) {
-        dao.insertEpisodeHistory(pod)
+
+    override suspend fun insertEpisodeHistory(metadata: EpisodeMetadata, duration: Long) {
+        dao.insertEpisodeHistory(metadata, duration)
     }
 
     override fun getHistoryFlow(): Flow<List<PodcastEpItem>> {

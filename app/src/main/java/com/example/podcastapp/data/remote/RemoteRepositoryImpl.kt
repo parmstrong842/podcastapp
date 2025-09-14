@@ -1,6 +1,6 @@
 package com.example.podcastapp.data.remote
 
-import com.example.podcastapp.AuthManager.generateAuthHeaders
+import com.example.podcastapp.data.remote.AuthManager.generateAuthHeaders
 import com.example.podcastapp.data.remote.models.podcastindex.EpisodeFeedResponse
 import com.example.podcastapp.data.remote.models.podcastindex.EpisodeResponse
 import com.example.podcastapp.data.remote.models.podcastindex.PodcastByFeedIDResponse
@@ -8,7 +8,6 @@ import com.example.podcastapp.data.remote.models.podcastindex.SearchResponse
 import com.prof18.rssparser.RssParserBuilder
 import com.prof18.rssparser.model.RssChannel
 import okhttp3.OkHttpClient
-import okhttp3.ResponseBody
 
 class RemoteRepositoryImpl(
     private val podcastIndexApi: PodcastIndexApi,

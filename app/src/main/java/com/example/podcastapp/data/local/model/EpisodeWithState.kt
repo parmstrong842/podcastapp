@@ -8,9 +8,9 @@ data class EpisodeWithState(
     val episodeImage: String,
     val episodeDescription: String,
     val enclosureUrl: String,
-    val duration: Long,
-    val position: Long,
     val feedUrl: String,
     val guid: String,
+    val duration: Long,
+    val position: Long,
     val finished: Boolean,
 )

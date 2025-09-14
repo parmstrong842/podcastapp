@@ -229,5 +229,5 @@ private fun PodcastItemPreview() {
         guid = "1",
         finished = false
     )
-    PodcastEpisodeCard(item, {}, {}) {}
+    PodcastEpisodeCard(item, true, "iea", {}, {}) {}
 }

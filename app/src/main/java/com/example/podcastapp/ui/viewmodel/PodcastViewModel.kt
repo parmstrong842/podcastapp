@@ -1,14 +1,16 @@
 package com.example.podcastapp.ui.viewmodel
 
 import android.util.Log
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.podcastapp.PodcastApplication
+import com.example.podcastapp.R
 import com.example.podcastapp.data.local.DatabaseRepository
 import com.example.podcastapp.data.remote.RemoteRepository
 import com.example.podcastapp.ui.components.PodcastEpItem
-import com.example.podcastapp.utils.Resource
+import com.example.podcastapp.util.Resource
 import com.prof18.rssparser.model.RssItem
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,6 +24,11 @@ import java.util.Locale
 
 private const val tag = "PodcastViewModel"
 
+enum class SortOrder(@StringRes val labelRes: Int) {
+    LATEST(R.string.sort_order_latest),
+    OLDEST(R.string.sort_order_oldest),
+}
+
 data class PodcastFetchState(
     val podcastTitle: String,
     val podcastImage: String,
@@ -30,7 +37,7 @@ data class PodcastFetchState(
 )
 
 data class PodcastUiState(
-    val sortByTabSelection: String,
+    val sortByTabSelection: SortOrder,
     val podcastFetchState: Resource<PodcastFetchState>
 )
 
@@ -41,7 +48,7 @@ class PodcastViewModel(
 ) : ViewModel() {
 
     private val _uiState: MutableStateFlow<PodcastUiState> = MutableStateFlow(PodcastUiState(
-        sortByTabSelection = "Latest",
+        sortByTabSelection = SortOrder.LATEST,
         podcastFetchState = Resource.Loading
     ))
     val uiState = _uiState.asStateFlow()
@@ -55,7 +62,11 @@ class PodcastViewModel(
                 val podcastImage = channel.itunesChannelData?.image
                         ?: channel.image?.url.orEmpty()
 
-                val episodes = channel.items.map { it.toPodcastEpItem(podcastTitle, podcastImage, feedUrl) }
+                val databaseEpisodes = databaseRepository.getAllProgressForPodcast(feedUrl).associateBy {
+                    it.guid
+                }
+
+                val episodes = channel.items.map { it.toPodcastEpItem(podcastTitle, podcastImage, feedUrl, databaseEpisodes) }
 
                 Resource.Success(
                     PodcastFetchState(
@@ -63,11 +74,10 @@ class PodcastViewModel(
                         podcastImage = podcastImage,
                         subscribed = databaseRepository.isSubscribed(feedUrl) == true,
                         episodes = episodes
-
                     )
                 )
             } catch (e: Exception) {
-                Resource.Error
+                Resource.Error(e)
             }
             _uiState.update {
                 it.copy(
@@ -77,11 +87,24 @@ class PodcastViewModel(
         }
     }
 
+    // TODO: we are assuming that the rss feed wont change; could come up with a better way to handle this
     private fun RssItem.toPodcastEpItem(
         podcastTitle: String,
         podcastImage: String,
-        feedUrl: String
+        feedUrl: String,
+        dbByKey: Map<String, PodcastEpItem>
     ): PodcastEpItem {
+        val stableGuid = when {
+            !this.guid.isNullOrBlank() -> this.guid!!
+            else -> java.security.MessageDigest.getInstance("SHA-256")
+                .digest((feedUrl + title.orEmpty() + pubDate.orEmpty()).toByteArray())
+                .joinToString("") { "%02x".format(it) }
+        }
+
+        if (dbByKey.containsKey(stableGuid)) {
+            return dbByKey[stableGuid]!!
+        }
+
         val epImage =
             this.itunesItemData?.image
                 ?: this.image
@@ -97,12 +120,6 @@ class PodcastViewModel(
 
         val duration = parseItunesDuration(this.itunesItemData?.duration)
 
-        val stableGuid = when {
-            !this.guid.isNullOrBlank() -> this.guid!!
-            else -> java.security.MessageDigest.getInstance("SHA-256")
-                .digest((feedUrl + title.orEmpty() + pubDate.orEmpty()).toByteArray())
-                .joinToString("") { "%02x".format(it) }
-        }
 
         return PodcastEpItem(
             podcastTitle = podcastTitle,
@@ -197,19 +214,17 @@ class PodcastViewModel(
 //    }
 
     // TODO: need to be able to parse different date formats
-    fun updateSortByTabSelection(newSelection: String) {
+    fun updateSortByTabSelection(newSelection: SortOrder) {
         val current = _uiState.value.podcastFetchState
         if (current is Resource.Success) {
             val episodes = current.data.episodes
-            // TODO: private rss feeds cant be sorted by popular
             val newList = when (newSelection) {
-                "Latest" -> {
+                SortOrder.LATEST -> {
                     episodes.sortedByDescending { parseDate(it.pubDate) }
                 }
-                "Oldest" -> {
+                SortOrder.OLDEST -> {
                     episodes.sortedBy { parseDate(it.pubDate) }
                 }
-                else -> {episodes}
             }
             _uiState.update {
                 it.copy(

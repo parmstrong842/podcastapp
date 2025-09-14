@@ -40,13 +40,15 @@ import com.example.podcastapp.ui.viewmodel.DownloadsViewModel
 import com.example.podcastapp.ui.viewmodel.HistoryViewModel
 import com.example.podcastapp.ui.viewmodel.QueueViewModel
 import com.example.podcastapp.ui.viewmodel.SubscriptionsViewModel
-import com.example.podcastapp.utils.Resource
+import com.example.podcastapp.util.Resource
 import kotlinx.coroutines.launch
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserScreen(
+    isPlaying: Boolean,
+    nowPlayingGuid: String?,
     playMedia: (PodcastEpItem) -> Unit,
     navigateToPodcast: (String) -> Unit,
     navigateToEpisode: (String) -> Unit,
@@ -92,7 +94,7 @@ fun UserScreen(
             when (pageIndex) {
                 0 -> QueueContent(playMedia, navigateToEpisode)
                 1 -> DownloadsContent()
-                2 -> HistoryContent(playMedia, navigateToEpisode)
+                2 -> HistoryContent(isPlaying, nowPlayingGuid, playMedia, navigateToEpisode)
                 3 -> SubscriptionsContent(navigateToPodcast = navigateToPodcast)
                 else -> Text("Invalid Page: $pageIndex")
             }
@@ -146,6 +148,8 @@ fun DownloadsContent(viewModel: DownloadsViewModel = viewModel(factory = Downloa
 
 @Composable
 fun HistoryContent(
+    isPlaying: Boolean,
+    nowPlayingGuid: String?,
     playMedia: (PodcastEpItem) -> Unit,
     navigateToEpisode: (String) -> Unit,
     viewModel: HistoryViewModel = viewModel(factory = HistoryViewModel.Factory(LocalContext.current.applicationContext as PodcastApplication))
@@ -159,6 +163,8 @@ fun HistoryContent(
                     items(state.data.history) {
                         PodcastEpisodeCard(
                             pod = it,
+                            isPlaying = isPlaying,
+                            nowPlayingGuid = nowPlayingGuid,
                             playMedia = playMedia,
                             onClickQueue = {
 //                                if (it.enqueued) {

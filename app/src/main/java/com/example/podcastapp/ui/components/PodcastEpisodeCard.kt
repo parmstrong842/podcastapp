@@ -1,7 +1,9 @@
 package com.example.podcastapp.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
@@ -36,10 +38,10 @@ data class PodcastEpItem(
     val episodeImage: String,
     val episodeDescription: String,
     val enclosureUrl: String,
-    val timeLeft: String,
-    val progress: Float,
     val feedUrl: String,
     val guid: String,
+    val timeLeft: String,
+    val progress: Float,
     val finished: Boolean,
 )
 
@@ -47,6 +49,8 @@ data class PodcastEpItem(
 @Composable
 fun PodcastEpisodeCard(
     pod: PodcastEpItem,
+    isPlaying: Boolean,
+    nowPlayingGuid: String?,
     playMedia: (PodcastEpItem) -> Unit,
     onClickQueue: () -> Unit,
     navigateToEpisode: (String) -> Unit
@@ -60,16 +64,24 @@ fun PodcastEpisodeCard(
             modifier = Modifier.padding(vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            GlideImage(
-                model = pod.episodeImage,
-                contentDescription = "episode image",
-                modifier = Modifier
-                    .padding(end = 8.dp)
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(6.dp)),
-                loading = placeholder(R.drawable.ic_launcher_background),
-                failure = placeholder(R.drawable.ic_launcher_foreground)
-            )
+            Box(Modifier.padding(end = 8.dp)) {
+                GlideImage(
+                    model = pod.episodeImage,
+                    contentDescription = "episode image",
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(6.dp)),
+                    loading = placeholder(R.drawable.ic_launcher_background),
+                    failure = placeholder(R.drawable.ic_launcher_foreground)
+                )
+                if (nowPlayingGuid == pod.guid) {
+                    if (isPlaying) {
+                        Box(Modifier.size(15.dp).background(Color.Magenta).align(Alignment.BottomEnd))
+                    } else {
+                        Box(Modifier.size(5.dp).background(Color.Magenta).align(Alignment.BottomEnd))
+                    }
+                }
+            }
             Column {
                 Text(
                     text = pod.podcastTitle,
@@ -147,6 +159,8 @@ private fun PodcastEpisodeItem_Enqueued_Preview() {
             guid = "123456789L",
             finished = false,
         ),
+        isPlaying = true,
+        nowPlayingGuid = "123456789L",
         playMedia = {},
         navigateToEpisode = {},
         onClickQueue = {}
@@ -171,6 +185,8 @@ private fun PodcastEpisodeItem_Not_Enqueued_Preview() {
             guid = "123456789L",
             finished = false,
         ),
+        isPlaying = false,
+        nowPlayingGuid = "987654321L",
         playMedia = {},
         navigateToEpisode = {},
         onClickQueue = {}

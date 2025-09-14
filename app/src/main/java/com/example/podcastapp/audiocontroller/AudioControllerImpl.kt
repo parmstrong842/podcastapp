@@ -33,43 +33,50 @@ import androidx.core.net.toUri
 import androidx.core.content.edit
 import androidx.media3.common.C
 import com.example.podcastapp.data.local.model.EpisodeProgress
+import com.google.gson.Gson
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 
 private const val tag = "AudioController"
 
 data class MediaInfo(
-    val title: String,
-    val episodeName: String,
-    val imageUri: Uri?
+    val podcastTitle: String,
+    val episodeTitle: String,
+    val episodeImage: Uri?
 )
 
-data class SavedMediaItem(
+data class EpisodeMetadata(
+    val podcastTitle: String,
+    val podcastImage: String,
+    val pubDate: String,
+    val episodeTitle: String,
+    val episodeImage: String,
+    val episodeDescription: String,
+    val enclosureUrl: String,
     val feedUrl: String,
     val guid: String,
-    val enclosureUri: String,
-    val episodeName: String,
-    val image: String,
-    val title: String,
 )
 
 class AudioControllerImpl(
     private val context: Context,
     private val databaseRepository: DatabaseRepository,
-    private val sharedPrefs: SharedPreferences
+    private val sharedPrefs: SharedPreferences,
+    private val gson: Gson,
 ) : IAudioController {
 
     override var hasPlaylistItems by mutableStateOf(false)
         private set
     override var isLoading by mutableStateOf(false)
         private set
+    override var isPlaying by mutableStateOf(false)
+        private set
+    override var nowPlayingGuid by mutableStateOf<String?>(null)
+        private set
     override var shouldShowPlayButton by mutableStateOf(true)
         private set
     override var sleepTimerActive by mutableStateOf(false)
         private set
     override var currentMediaInfo by mutableStateOf<MediaInfo?>(null)
-        private set
-    override var mediaIsPlaying by mutableStateOf(false)
         private set
 
     private var mediaController: MediaController? = null
@@ -82,6 +89,8 @@ class AudioControllerImpl(
     private val _currentSpeed = MutableStateFlow("1x")
     override val currentSpeed: StateFlow<String> = _currentSpeed.asStateFlow()
 
+    private var currentEpisodeMetadata: EpisodeMetadata? = null
+
     override fun initializeMediaController() {
         if (mediaController == null) {
             val sessionToken =
@@ -89,23 +98,34 @@ class AudioControllerImpl(
             val controllerFuture = MediaController.Builder(context, sessionToken).buildAsync()
             controllerFuture.addListener({
                 mediaController = controllerFuture.get()
-                fetchCurrentMediaItem(sharedPrefs)
+                fetchSavedMediaItem(sharedPrefs)
 
                 mediaController?.addListener(object : Player.Listener {
                     override fun onPlaybackStateChanged(state: Int) {
                         when (state) {
                             Player.STATE_READY -> {
-                                //Log.d(tag, "Player is ready")
+                                Log.d(tag, "Player is ready")
+                                if (mediaController?.playWhenReady == true) {
+                                    scope.launch {
+                                        currentEpisodeMetadata?.let {
+                                            databaseRepository.insertEpisodeHistory(
+                                                metadata = it,
+                                                duration = mediaController?.duration ?: 0
+                                            )
+                                        }
+                                    }
+                                }
                                 isLoading = false
                             }
 
                             Player.STATE_ENDED -> {
-                                //Log.d(tag, "Playback ended")
+                                Log.d(tag, "Playback ended")
                                 isLoading = false
-                                mediaController?.currentMediaItem?.let {
+                                currentEpisodeMetadata?.let {
                                     scope.launch {
                                         saveCurrentProgress(
-                                            currentMediaItem = it,
+                                            feedUrl = it.feedUrl,
+                                            guid = it.guid,
                                             currentPosition = mediaController?.currentPosition ?: 0,
                                             totalDuration = mediaController?.duration ?: 0,
                                             reason = "playback ended",
@@ -116,12 +136,12 @@ class AudioControllerImpl(
                             }
 
                             Player.STATE_BUFFERING -> {
-                                //Log.d(tag, "Buffering")
+                                Log.d(tag, "Buffering")
                                 isLoading = true
                             }
 
                             Player.STATE_IDLE -> {
-                                //Log.d(tag, "Player idle")
+                                Log.d(tag, "Player idle")
                                 isLoading = false
                             }
                         }
@@ -129,30 +149,32 @@ class AudioControllerImpl(
 
                     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                         //Log.d(tag, "onMediaItemTransition")
+                        nowPlayingGuid = currentEpisodeMetadata?.guid
                         updatePlaylistState()
                         currentMediaInfo = mediaItem?.let { item ->
                             val metadata = item.mediaMetadata
                             MediaInfo(
-                                title = metadata.artist.toString(),
-                                episodeName = metadata.title.toString(),
-                                imageUri = metadata.artworkUri
+                                podcastTitle = metadata.artist.toString(),
+                                episodeTitle = metadata.title.toString(),
+                                episodeImage = metadata.artworkUri
                             )
                         }
                     }
 
                     override fun onIsPlayingChanged(isPlaying: Boolean) {
-                        //Log.d(tag, "isPlaying: $isPlaying")
-                        mediaIsPlaying = isPlaying
+                        Log.d(tag, "isPlaying: $isPlaying")
+                        this@AudioControllerImpl.isPlaying = isPlaying
                         updatePlayButtonState()
                         if (isPlaying) {
                             // backup in case other methods fail to save progress
                             if (progressUpdateJob == null || progressUpdateJob?.isCancelled == true) {
                                 progressUpdateJob = scope.launch {
                                     while (isActive) {
-                                        mediaController?.currentMediaItem?.let {
+                                        currentEpisodeMetadata?.let {
                                             scope.launch {
                                                 saveCurrentProgress(
-                                                    currentMediaItem = it,
+                                                    feedUrl = it.feedUrl,
+                                                    guid = it.guid,
                                                     currentPosition = mediaController?.currentPosition ?: 0,
                                                     totalDuration = mediaController?.duration ?: 0,
                                                     reason = "periodic or playback started"
@@ -166,11 +188,12 @@ class AudioControllerImpl(
                         } else {
                             progressUpdateJob?.cancel()
                             progressUpdateJob = null
-                            mediaController?.currentMediaItem?.let {
-                                if (mediaController?.playbackState != Player.STATE_ENDED) {
+                            if (mediaController?.playbackState != Player.STATE_ENDED) {
+                                currentEpisodeMetadata?.let {
                                     scope.launch {
                                         saveCurrentProgress(
-                                            currentMediaItem = it,
+                                            feedUrl = it.feedUrl,
+                                            guid = it.guid,
                                             currentPosition = mediaController?.currentPosition ?: 0,
                                             totalDuration = mediaController?.duration ?: 0,
                                             reason = "playback stopped but not ended"
@@ -187,10 +210,11 @@ class AudioControllerImpl(
                         reason: Int
                     ) {
                         if (reason == Player.DISCONTINUITY_REASON_REMOVE || reason == Player.DISCONTINUITY_REASON_SEEK) {
-                            mediaController?.currentMediaItem?.let {
+                            currentEpisodeMetadata?.let {
                                 scope.launch {
                                     saveCurrentProgress(
-                                        currentMediaItem = it,
+                                        feedUrl = it.feedUrl,
+                                        guid = it.guid,
                                         currentPosition = oldPosition.positionMs,
                                         totalDuration = mediaController?.duration ?: 0,
                                         reason = "position discontinuity $reason"
@@ -222,25 +246,23 @@ class AudioControllerImpl(
 
     override fun playMedia(pod: PodcastEpItem) {
         playMediaJob = scope.launch {
-            val extras = Bundle().apply {
-                putString("FEED_URL", pod.feedUrl)
-                putString("GUID", pod.guid)
-            }
-
-            val mediaItemToSave = SavedMediaItem(
+            val mediaItemToSave = EpisodeMetadata(
+                podcastTitle = pod.podcastTitle,
+                podcastImage = pod.podcastImage,
+                pubDate = pod.pubDate,
+                episodeTitle = pod.episodeTitle,
+                episodeImage = pod.episodeImage,
+                episodeDescription = pod.episodeDescription,
+                enclosureUrl = pod.enclosureUrl,
                 feedUrl = pod.feedUrl,
                 guid = pod.guid,
-                enclosureUri = pod.enclosureUrl,
-                episodeName = pod.episodeTitle,
-                image = pod.episodeImage,
-                title = pod.podcastTitle,
             )
+            currentEpisodeMetadata = mediaItemToSave
             saveCurrentMediaItem(mediaItemToSave)
+            nowPlayingGuid = pod.guid
 
-            // TODO: I don't know; want to avoid items in episode_state that have 0 duration
             val savedProgress = databaseRepository.getProgress(pod.feedUrl, pod.guid)
-            prepareMediaItem(pod.enclosureUrl, pod.episodeTitle, pod.episodeImage, pod.podcastTitle, extras, savedProgress)
-            databaseRepository.insertEpisodeHistory(pod)
+            prepareMediaItem(pod.enclosureUrl, pod.episodeTitle, pod.episodeImage, pod.podcastTitle, savedProgress)
 
             mediaController?.play()
         }
@@ -251,7 +273,6 @@ class AudioControllerImpl(
         episodeTitle: String,
         episodeImage: String,
         podcastTitle: String,
-        extras: Bundle,
         savedProgress: EpisodeProgress?
     ) {
         mediaController?.let { controller ->
@@ -262,7 +283,6 @@ class AudioControllerImpl(
                         .setTitle(episodeTitle)
                         .setArtworkUri(episodeImage.toUri())
                         .setArtist(podcastTitle)
-                        .setExtras(extras)
                         .build()
                 )
                 .build()
@@ -277,20 +297,18 @@ class AudioControllerImpl(
     }
 
     private suspend fun saveCurrentProgress(
-        currentMediaItem: MediaItem,
+        feedUrl: String,
+        guid: String,
         currentPosition: Long,
         totalDuration: Long,
         reason: String = "",
         finished: Boolean = false
     ) {
         if (totalDuration == C.TIME_UNSET) {
-            Log.d(tag, "saveCurrentProgress: invalid duration, skipping save.")
+            Log.d(tag, "save: $reason -- invalid duration, skipping save.")
             return
         }
-        val extras = currentMediaItem.mediaMetadata.extras ?: return
 
-        val feedUrl = extras.getString("FEED_URL") ?: return
-        val guid = extras.getString("GUID") ?: return
         Log.d(tag, "save: $reason")
 
         try {
@@ -387,43 +405,26 @@ class AudioControllerImpl(
             )
     }
 
-    private fun saveCurrentMediaItem(pod: SavedMediaItem) {
-        sharedPrefs.edit {
-            putString("current_media_item_feed_url", pod.feedUrl)
-            putString("current_media_item_guid", pod.guid)
-            putString("current_media_item_enclosure", pod.enclosureUri)
-            putString("current_media_item_episode_name", pod.episodeName)
-            putString("current_media_item_image", pod.image)
-            putString("current_media_item_title", pod.title)
-        }
+    private fun saveCurrentMediaItem(metadata: EpisodeMetadata) {
+        val json = gson.toJson(metadata)
+        sharedPrefs.edit { putString("last_media_item", json) }
     }
 
-    private fun fetchCurrentMediaItem(sharedPrefs: SharedPreferences) {
+    private fun fetchSavedMediaItem(sharedPrefs: SharedPreferences) {
         scope.launch {
-            if (!sharedPrefs.contains("current_media_item_guid")) {
-                return@launch
+            val jsonString = sharedPrefs.getString("last_media_item", null)
+            jsonString?.let {
+                val metadata = gson.fromJson(it, EpisodeMetadata::class.java)
+                currentEpisodeMetadata = metadata
+                val savedProgress = databaseRepository.getProgress(metadata.feedUrl, metadata.guid)
+
+                prepareMediaItem(metadata.enclosureUrl, metadata.episodeTitle, metadata.episodeImage, metadata.podcastTitle, savedProgress)
             }
-
-            val feedUrl = sharedPrefs.getString("current_media_item_feed_url", "") ?: ""
-            val guid = sharedPrefs.getString("current_media_item_guid", "") ?: ""
-            val enclosure = sharedPrefs.getString("current_media_item_enclosure", "") ?: ""
-            val episodeName = sharedPrefs.getString("current_media_item_episode_name", "") ?: ""
-            val image = sharedPrefs.getString("current_media_item_image", "") ?: ""
-            val title = sharedPrefs.getString("current_media_item_title", "") ?: ""
-
-            val extras = Bundle().apply {
-                putString("FEED_URL", feedUrl)
-                putString("GUID", guid)
-            }
-
-            val savedProgress = databaseRepository.getProgress(feedUrl, guid)
-
-            prepareMediaItem(enclosure, episodeName, image, title, extras, savedProgress)
         }
     }
 
     override fun getCurrentPodcastFeedUrl(): String? {
-        return mediaController?.currentMediaItem?.mediaMetadata?.extras?.getString("FEED_URL")
+        return currentEpisodeMetadata?.feedUrl
     }
 
     override fun getMediaController(): MediaController? = mediaController
@@ -435,12 +436,13 @@ class AudioControllerImpl(
         progressUpdateJob?.cancel()
         progressUpdateJob = null
 
-        mediaController?.currentMediaItem?.let {
-            val currentPosition = mediaController?.currentPosition ?: 0
-            val totalDuration = mediaController?.duration ?: 0
+        val currentPosition = mediaController?.currentPosition ?: 0
+        val totalDuration = mediaController?.duration ?: 0
+        currentEpisodeMetadata?.let {
             scope.launch {
                 saveCurrentProgress(
-                    currentMediaItem = it,
+                    feedUrl = it.feedUrl,
+                    guid = it.guid,
                     currentPosition = currentPosition,
                     totalDuration = totalDuration,
                     reason = "release called"

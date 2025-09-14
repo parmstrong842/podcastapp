@@ -8,4 +8,6 @@
     <string name="add_rss">Add</string>
     <string name="cancel">Cancel</string>
     <string name="invalid_rss_feed_url">Invalid RSS feed URL</string>
+    <string name="sort_order_latest">Latest</string>
+    <string name="sort_order_oldest">Oldest</string>
 </resources>

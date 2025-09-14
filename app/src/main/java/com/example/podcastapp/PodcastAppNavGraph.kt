@@ -126,6 +126,8 @@ fun PodcastNavGraph(audioController: IAudioController) {
                     }
                     entry<NavigationScreen.User> {
                         UserScreen(
+                            isPlaying = audioController.isPlaying,
+                            nowPlayingGuid = audioController.nowPlayingGuid,
                             playMedia = { audioController.playMedia(it) },
                             navigateToPodcast = { topLevelBackStack.add(NavigationScreen.Podcast(it)) },
                             navigateToEpisode = { topLevelBackStack.add(NavigationScreen.Episode(it)) }
@@ -134,6 +136,8 @@ fun PodcastNavGraph(audioController: IAudioController) {
                     entry<NavigationScreen.Podcast> {
                         PodcastScreen(
                             viewModel = viewModel(factory = PodcastViewModel.Factory(it.feedUrl, LocalContext.current.applicationContext as PodcastApplication)),
+                            isPlaying = audioController.isPlaying,
+                            nowPlayingGuid = audioController.nowPlayingGuid,
                             navigateBack = { topLevelBackStack.removeLast() },
                             playMedia = { podcastEpItem ->  audioController.playMedia(podcastEpItem) },
                             navigateToEpisode = { episodeID -> topLevelBackStack.add(NavigationScreen.Episode(episodeID)) }

@@ -8,10 +8,11 @@ import kotlinx.coroutines.flow.StateFlow
 interface IAudioController {
     val hasPlaylistItems: Boolean
     val isLoading: Boolean
+    val isPlaying: Boolean
+    val nowPlayingGuid: String?
     val shouldShowPlayButton: Boolean
     val sleepTimerActive: Boolean
     val currentMediaInfo: MediaInfo?
-    val mediaIsPlaying: Boolean
     val currentSpeed: StateFlow<String>
 
     fun initializeMediaController()

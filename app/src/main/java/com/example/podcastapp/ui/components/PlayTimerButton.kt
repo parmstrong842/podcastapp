@@ -48,7 +48,7 @@ fun PlayTimerButton(
                 else -> {
                     Icon(Icons.Default.PlayCircleOutline, contentDescription = "play")
                     Spacer(Modifier.width(4.dp))
-                    Text(timeLeft)
+                    Text(if (timeLeft == "00:00") "__:__" else timeLeft)
                 }
             }
         }

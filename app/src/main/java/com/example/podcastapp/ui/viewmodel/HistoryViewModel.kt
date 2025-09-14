@@ -6,7 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.podcastapp.PodcastApplication
 import com.example.podcastapp.data.local.DatabaseRepository
 import com.example.podcastapp.ui.components.PodcastEpItem
-import com.example.podcastapp.utils.Resource
+import com.example.podcastapp.util.Resource
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
@@ -35,8 +35,8 @@ class HistoryViewModel(
         viewModelScope.launch {
             databaseRepository
                 .getHistoryFlow()
-                .catch {
-                    _uiState.update { it.copy(historyFetchState = Resource.Error) }
+                .catch { e ->
+                    _uiState.update { it.copy(historyFetchState = Resource.Error(e)) }
                 }
                 .collect { list ->
                     _uiState.update { state ->

@@ -6,11 +6,9 @@ import androidx.lifecycle.viewModelScope
 import com.example.podcastapp.PodcastApplication
 import com.example.podcastapp.data.local.DatabaseRepository
 import com.example.podcastapp.ui.components.PodcastEpItem
-import com.example.podcastapp.utils.Resource
+import com.example.podcastapp.util.Resource
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 

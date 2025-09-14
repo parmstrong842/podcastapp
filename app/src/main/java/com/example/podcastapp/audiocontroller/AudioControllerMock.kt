@@ -13,15 +13,16 @@ class AudioControllerMock(
     override val shouldShowPlayButton: Boolean = true,
     override val sleepTimerActive: Boolean = false,
     override val currentMediaInfo: MediaInfo? = MediaInfo(
-        title = "Fall of Civilizations Podcast",
-        episodeName = "4. The Greenland Vikings - Land of the Midnight Sun",
-        imageUri = "https://d3t3ozftmdmh3i.cloudfront.net/staging/podcast_uploaded_episode/43131353/3192d515c95fdf40.jpg".toUri()
+        podcastTitle = "Fall of Civilizations Podcast",
+        episodeTitle = "4. The Greenland Vikings - Land of the Midnight Sun",
+        episodeImage = "https://d3t3ozftmdmh3i.cloudfront.net/staging/podcast_uploaded_episode/43131353/3192d515c95fdf40.jpg".toUri()
     ),
-    override val mediaIsPlaying: Boolean = true,
+    override val isPlaying: Boolean = true,
     override val currentSpeed: StateFlow<String> = MutableStateFlow("1x"),
     val sliderCurrentProgress: Float = 0.25f,
     val sliderBufferProgress: Float = 0.5f,
     val currentPodcastId: Int = 1,
+    override val nowPlayingGuid: String? = null,
 ) : IAudioController {
     override fun initializeMediaController() {}
 

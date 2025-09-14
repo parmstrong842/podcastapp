@@ -37,6 +37,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -52,7 +53,8 @@ import com.example.podcastapp.ui.theme.PodcastAppTheme
 import com.example.podcastapp.ui.viewmodel.PodcastFetchState
 import com.example.podcastapp.ui.viewmodel.PodcastUiState
 import com.example.podcastapp.ui.viewmodel.PodcastViewModel
-import com.example.podcastapp.utils.Resource
+import com.example.podcastapp.ui.viewmodel.SortOrder
+import com.example.podcastapp.util.Resource
 
 // TODO: add episode search
 // TODO: add episode filters (played, unplayed, downloaded)
@@ -60,6 +62,8 @@ import com.example.podcastapp.utils.Resource
 @Composable
 fun PodcastScreen(
     viewModel: PodcastViewModel,
+    isPlaying: Boolean,
+    nowPlayingGuid: String?,
     navigateBack: () -> Unit,
     playMedia: (PodcastEpItem) -> Unit,
     navigateToEpisode: (String) -> Unit,
@@ -68,6 +72,8 @@ fun PodcastScreen(
 
     PodcastScreenUI(
         uiState = uiState,
+        isPlaying = isPlaying,
+        nowPlayingGuid = nowPlayingGuid,
         navigateBack = navigateBack,
         playMedia = playMedia,
         onClickSubscribe = { subscribed ->
@@ -89,16 +95,17 @@ fun PodcastScreen(
     )
 }
 
-@OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 fun PodcastScreenUI(
     uiState: PodcastUiState,
+    isPlaying: Boolean,
+    nowPlayingGuid: String?,
     navigateBack: () -> Unit,
     playMedia: (PodcastEpItem) -> Unit,
     onClickSubscribe: (Boolean) -> Unit,
     onClickQueue: (PodcastEpItem) -> Unit,
     navigateToEpisode: (String) -> Unit,
-    updateSortByTabSelection: (String) -> Unit
+    updateSortByTabSelection: (SortOrder) -> Unit
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally
@@ -111,6 +118,8 @@ fun PodcastScreenUI(
                     title = state.data.podcastTitle,
                     subscribed = state.data.subscribed,
                     sortByTabSelection = uiState.sortByTabSelection,
+                    isPlaying = isPlaying,
+                    nowPlayingGuid = nowPlayingGuid,
                     episodes = state.data.episodes,
                     playMedia = playMedia,
                     onClickSubscribe = onClickSubscribe,
@@ -137,13 +146,15 @@ private fun Success(
     image: String,
     title: String,
     subscribed: Boolean,
-    sortByTabSelection: String,
+    sortByTabSelection: SortOrder,
+    isPlaying: Boolean,
+    nowPlayingGuid: String?,
     episodes: List<PodcastEpItem>,
     playMedia: (PodcastEpItem) -> Unit,
     onClickSubscribe: (Boolean) -> Unit,
     onClickQueue: (PodcastEpItem) -> Unit,
     navigateToEpisode: (String) -> Unit,
-    updateSortByTabSelection: (String) -> Unit
+    updateSortByTabSelection: (SortOrder) -> Unit
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally
@@ -173,6 +184,8 @@ private fun Success(
             items(episodes) {
                 PodcastEpisodeCard(
                     pod = it,
+                    isPlaying = isPlaying,
+                    nowPlayingGuid = nowPlayingGuid,
                     playMedia = playMedia,
                     onClickQueue = {
                         onClickQueue(it)
@@ -198,8 +211,8 @@ private fun PodcastScreenTopBar(
 @Composable
 private fun FilterTabs(
     modifier: Modifier = Modifier,
-    sortByTabSelection: String,
-    updateSortByTabSelection: (String) -> Unit
+    sortByTabSelection: SortOrder,
+    updateSortByTabSelection: (SortOrder) -> Unit
 ) {
     val openSortByDialog = remember { mutableStateOf(false) }
 
@@ -210,9 +223,9 @@ private fun FilterTabs(
             contentPadding = PaddingValues(16.dp, 8.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(sortByTabSelection)
+                Text(stringResource(sortByTabSelection.labelRes))
                 Spacer(Modifier.padding(2.dp))
-                Canvas(Modifier
+                Canvas(Modifier // TODO: make this work with dark mode
                     .size(10.dp)
                     .offset(y = 3.dp)) {
                     drawLine(Color.White, Offset(0f, 0f), center, 4f, StrokeCap.Round)
@@ -234,9 +247,9 @@ private fun FilterTabs(
 @Composable
 private fun SortByTabDialog(
     modifier: Modifier = Modifier,
-    selectedOption: String,
+    selectedOption: SortOrder,
     onBack: () -> Unit,
-    onOptionSelected: (String) -> Unit
+    onOptionSelected: (SortOrder) -> Unit
 ) {
     Dialog(
         onDismissRequest = onBack
@@ -245,16 +258,16 @@ private fun SortByTabDialog(
             modifier = modifier,
             shape = RoundedCornerShape(16.dp),
         ) {
-            val radioOptions = listOf("Latest", "Oldest", "Popular")
+            val radioOptions = SortOrder.entries
             Column(Modifier.selectableGroup()) {
-                radioOptions.forEach { text ->
+                radioOptions.forEach { sortOrder ->
                     Row(
                         Modifier
                             .height(40.dp)
                             .selectable(
-                                selected = (text == selectedOption),
+                                selected = (sortOrder == selectedOption),
                                 onClick = {
-                                    onOptionSelected(text)
+                                    onOptionSelected(sortOrder)
                                     onBack()
                                 },
                                 role = Role.RadioButton
@@ -263,14 +276,14 @@ private fun SortByTabDialog(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = text,
+                            text = stringResource(sortOrder.labelRes),
                             style = MaterialTheme.typography.bodyLarge,
                             modifier = Modifier
                                 .padding(start = 16.dp)
                                 .weight(1f)
                         )
                         RadioButton(
-                            selected = (text == selectedOption),
+                            selected = (sortOrder == selectedOption),
                             onClick = null,
                             modifier = Modifier.padding(end = 16.dp)
                         )
@@ -308,13 +321,13 @@ private fun Idle(modifier: Modifier = Modifier) {
 @Preview
 @Composable
 private fun FilterTabPreview() {
-    FilterTabs(sortByTabSelection = "Latest", updateSortByTabSelection = {})
+    FilterTabs(sortByTabSelection = SortOrder.LATEST, updateSortByTabSelection = {})
 }
 
 @Preview
 @Composable
 private fun SortByTabDialogPreview() {
-    SortByTabDialog(selectedOption = "Latest", onBack = {}) { }
+    SortByTabDialog(selectedOption = SortOrder.LATEST, onBack = {}) { }
 }
 
 
@@ -322,18 +335,17 @@ private fun SortByTabDialogPreview() {
 @Composable
 private fun PodcastScreenUIPreview() {
     val uiState = PodcastUiState(
-        sortByTabSelection = "Latest",
+        sortByTabSelection = SortOrder.LATEST,
         podcastFetchState = Resource.Success(
             PodcastFetchState(
                 podcastTitle = "The Joe Rogan Experience",
                 podcastImage = "https://megaphone.imgix.net/podcasts/8e5bcebc-ca16-11ee-89f0-0fa0b9bdfc7c/image/11f568857987283428d892402e623b21.jpg?ixlib=rails-4.3.1&max-w=3000&max-h=3000&fit=crop&auto=format,compress",
                 subscribed = false,
                 episodes = emptyList()
-
             )
         )
     )
     PodcastAppTheme {
-        PodcastScreenUI(uiState, navigateBack = {}, playMedia = {}, onClickSubscribe = {}, navigateToEpisode = {}, updateSortByTabSelection = {}, onClickQueue = {})
+        PodcastScreenUI(uiState, true, "123456", navigateBack = {}, playMedia = {}, onClickSubscribe = {}, navigateToEpisode = {}, updateSortByTabSelection = {}, onClickQueue = {})
     }
 }

@@ -15,10 +15,10 @@ fun EpisodeWithState.toPodcastEpItem(): PodcastEpItem {
         episodeImage = episodeImage,
         episodeDescription = episodeDescription,
         enclosureUrl = enclosureUrl,
-        timeLeft = formatTimeMs(timeLeft),
-        progress = progress,
         feedUrl = feedUrl,
         guid = guid,
+        timeLeft = formatTimeMs(timeLeft),
+        progress = progress,
         finished = finished
     )
 }

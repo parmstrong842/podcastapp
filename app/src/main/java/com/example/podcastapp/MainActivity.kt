@@ -8,6 +8,7 @@ import androidx.activity.enableEdgeToEdge
 import com.example.podcastapp.audiocontroller.AudioControllerImpl
 import com.example.podcastapp.audiocontroller.IAudioController
 import com.example.podcastapp.ui.theme.PodcastAppTheme
+import com.google.gson.Gson
 
 private const val tag = "MyMainActivity"
 
@@ -20,7 +21,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         val sharedPrefs = getSharedPreferences("media_prefs", MODE_PRIVATE)
-        audioController = AudioControllerImpl(this, (application as PodcastApplication).container.databaseRepository, sharedPrefs)
+        audioController = AudioControllerImpl(this, (application as PodcastApplication).container.databaseRepository, sharedPrefs, Gson())
 
         setContent {
             PodcastAppTheme {
@@ -37,7 +38,7 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         Log.d(tag, "onStop")
         super.onStop()
-        if (!audioController.mediaIsPlaying) {
+        if (!audioController.isPlaying) {
             audioController.release()
         }
     }

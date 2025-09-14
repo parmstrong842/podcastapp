@@ -1,6 +1,6 @@
 package com.example.podcastapp.data.local
 
-import com.example.podcastapp.data.local.entity.EpisodeStateEntity
+import com.example.podcastapp.audiocontroller.EpisodeMetadata
 import com.example.podcastapp.data.local.entity.PodcastEntity
 import com.example.podcastapp.data.local.model.EpisodeProgress
 import com.example.podcastapp.data.local.model.EpisodeWithState
@@ -21,7 +21,9 @@ interface DatabaseRepository {
 
     suspend fun getProgress(feedUrl: String, guid: String): EpisodeProgress?
 
-    suspend fun insertEpisodeHistory(pod: PodcastEpItem)
+    suspend fun getAllProgressForPodcast(feedUrl: String): List<PodcastEpItem>
+
+    suspend fun insertEpisodeHistory(metadata: EpisodeMetadata, duration: Long)
 
     fun getHistoryFlow(): Flow<List<PodcastEpItem>>
 }

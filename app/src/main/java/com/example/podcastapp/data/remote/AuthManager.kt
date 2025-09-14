@@ -1,5 +1,6 @@
-package com.example.podcastapp
+package com.example.podcastapp.data.remote
 
+import com.example.podcastapp.BuildConfig
 import java.security.MessageDigest
 
 object AuthManager {

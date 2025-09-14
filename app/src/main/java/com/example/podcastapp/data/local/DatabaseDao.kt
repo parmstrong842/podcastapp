@@ -6,12 +6,12 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
+import com.example.podcastapp.audiocontroller.EpisodeMetadata
 import com.example.podcastapp.data.local.entity.EpisodeEntity
 import com.example.podcastapp.data.local.entity.EpisodeStateEntity
 import com.example.podcastapp.data.local.entity.PodcastEntity
 import com.example.podcastapp.data.local.model.EpisodeProgress
 import com.example.podcastapp.data.local.model.EpisodeWithState
-import com.example.podcastapp.ui.components.PodcastEpItem
 import kotlinx.coroutines.flow.Flow
 
 /*
@@ -29,11 +29,14 @@ interface DatabaseDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertPodcast(podcast: PodcastEntity): Long
 
-    @Upsert
-    suspend fun upsertPodcast(podcast: PodcastEntity)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertEpisode(episode: EpisodeEntity): Long
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insertEpisode(episode: EpisodeEntity)
+    suspend fun insertStateRow(state: EpisodeStateEntity): Long
+
+    @Upsert
+    suspend fun upsertPodcast(podcast: PodcastEntity)
 
     @Query("UPDATE podcasts SET subscribed = 0 WHERE feedUrl = :feedUrl")
     suspend fun unsubscribe(feedUrl: String)
@@ -71,9 +74,6 @@ interface DatabaseDao {
     @Query("SELECT episodeId FROM episodes WHERE feedUrl = :feedUrl AND guid = :guid")
     suspend fun findEpisodeId(feedUrl: String, guid: String): Long?
 
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun ensureStateRow(state: EpisodeStateEntity): Long
-
     @Query("""
         UPDATE episode_state
         SET lastPlayedAt = :now
@@ -82,8 +82,8 @@ interface DatabaseDao {
     suspend fun updateLastPlayedAt(episodeId: Long, now: Long)
 
     @Transaction
-    suspend fun insertEpisodeHistory(pod: PodcastEpItem, now: Long = System.currentTimeMillis()) {
-        val episodeId = ensureEverythingExists(pod) ?: return
+    suspend fun insertEpisodeHistory(metadata: EpisodeMetadata, duration: Long, now: Long = System.currentTimeMillis()) {
+        val episodeId = ensureEverythingExists(metadata, duration) ?: return
         updateLastPlayedAt(episodeId, now)
     }
 
@@ -110,24 +110,45 @@ interface DatabaseDao {
     """)
     suspend fun getProgress(feedUrl: String, guid: String): EpisodeProgress?
 
+    @Query("""
+        SELECT 
+            e.episodeImage,
+            e.pubDate,
+            e.episodeTitle,
+            e.episodeDescription,
+            e.enclosureUrl,
+            e.feedUrl,
+            e.guid,
+            s.duration,
+            s.position,
+            s.finished,
+            p.podcastTitle,
+            p.podcastImage
+        FROM episodes e
+        JOIN episode_state s ON s.episodeId = e.episodeId
+        JOIN podcasts p ON p.feedUrl = e.feedUrl
+        WHERE e.feedUrl = :feedUrl
+    """)
+    suspend fun getAllProgressForPodcast(feedUrl: String): List<EpisodeWithState>
+
     @Transaction
-    suspend fun ensureEverythingExists(pod: PodcastEpItem): Long? {
+    suspend fun ensureEverythingExists(metadata: EpisodeMetadata, duration: Long): Long? {
         insertPodcast(PodcastEntity(
-            feedUrl = pod.feedUrl,
-            podcastTitle = pod.podcastTitle,
-            podcastImage = pod.podcastImage
+            feedUrl = metadata.feedUrl,
+            podcastTitle = metadata.podcastTitle,
+            podcastImage = metadata.podcastImage
         ))
         insertEpisode(EpisodeEntity(
-            feedUrl = pod.feedUrl,
-            guid = pod.guid,
-            episodeTitle = pod.episodeTitle,
-            episodeDescription = pod.episodeDescription,
-            enclosureUrl = pod.enclosureUrl,
-            episodeImage = pod.episodeImage,
-            pubDate = pod.pubDate
+            feedUrl = metadata.feedUrl,
+            guid = metadata.guid,
+            episodeTitle = metadata.episodeTitle,
+            episodeDescription = metadata.episodeDescription,
+            enclosureUrl = metadata.enclosureUrl,
+            episodeImage = metadata.episodeImage,
+            pubDate = metadata.pubDate
         ))
-        val episodeId = findEpisodeId(pod.feedUrl, pod.guid) ?: return null
-        ensureStateRow(EpisodeStateEntity(episodeId))
+        val episodeId = findEpisodeId(metadata.feedUrl, metadata.guid) ?: return null
+        insertStateRow(EpisodeStateEntity(episodeId, duration = duration))
         return episodeId
     }
 }

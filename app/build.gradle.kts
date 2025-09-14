@@ -71,7 +71,6 @@ android {
 }
 
 dependencies {
-    implementation("androidx.media3:media3-ui:1.5.1")
     implementation(libs.androidx.room.runtime)
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.room.ktx)
